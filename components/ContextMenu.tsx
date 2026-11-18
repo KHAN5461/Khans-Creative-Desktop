@@ -33,15 +33,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ children, items }) => 
     e.preventDefault();
     e.stopPropagation(); // Prevent bubbling if nested
 
-    const menuWidth = 180;
-    const menuHeight = items.length * 40; // Approx height
+    const menuWidth = 200;
+    const menuHeight = items.reduce((acc, item) => acc + (item.separator ? 14 : 34), 16);
 
-    let x = e.clientX;
-    let y = e.clientY;
-
-    // Boundary check
-    if (x + menuWidth > window.innerWidth) x -= menuWidth;
-    if (y + menuHeight > window.innerHeight) y -= menuHeight;
+    const x = Math.max(12, Math.min(e.clientX, window.innerWidth - menuWidth - 12));
+    const y = Math.max(12, Math.min(e.clientY, window.innerHeight - menuHeight - 12));
 
     setPosition({ x, y });
     setIsVisible(true);

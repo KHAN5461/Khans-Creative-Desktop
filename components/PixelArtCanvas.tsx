@@ -1,87 +1,466 @@
-import React from 'react';
+import React, { useState, useRef, useCallback } from 'react';
+import {
+  Pencil,
+  Eraser,
+  PaintBucket,
+  Pipette,
+  Undo2,
+  Redo2,
+  Trash2,
+  Download,
+  FlipHorizontal2,
+  Grid3X3,
+  Pin,
+} from 'lucide-react';
+import { useSound } from '../contexts/SoundContext';
 
-const GRID_SIZE = 32;
-const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
+interface PixelArtCanvasProps {
+  onPinToDesktop?: (imageDataUrl: string, label: string) => void;
+}
 
-const PixelArtCanvas: React.FC = () => {
+type Tool = 'pencil' | 'eraser' | 'bucket' | 'eyedropper';
+
+interface HistorySnapshot {
+  gridSize: 16 | 32;
+  pixels: (string | null)[];
+}
+
+const PALETTE = [
+  '#1C1B1F',
+  '#FFFFFF',
+  '#D5A700',
+  '#E11D48',
+  '#2563EB',
+  '#10B981',
+  '#8B5CF6',
+  '#F97316',
+  '#38BDF8',
+  '#F472B6',
+];
+
+const createStarterGrid16 = (): (string | null)[] => {
+  const g: (string | null)[] = Array(16 * 16).fill(null);
+  const put = (x: number, y: number, c: string) => {
+    g[y * 16 + x] = c;
+  };
+  // Charming pixel buddy motif
+  const outline = '#1C1B1F';
+  const body = '#D5A700';
+  const cheek = '#F472B6';
+  const shine = '#FFF0C9';
+
+  for (let x = 5; x <= 10; x++) {
+    put(x, 3, outline);
+    put(x, 12, outline);
+  }
+  for (let y = 5; y <= 10; y++) {
+    put(3, y, outline);
+    put(12, y, outline);
+  }
+  put(4, 4, outline);
+  put(11, 4, outline);
+  put(4, 11, outline);
+  put(11, 11, outline);
+
+  for (let y = 4; y <= 11; y++) {
+    for (let x = 4; x <= 11; x++) {
+      if (g[y * 16 + x] === null) put(x, y, body);
+    }
+  }
+  // Highlights
+  put(5, 5, shine);
+  put(6, 5, shine);
+  // Eyes
+  put(6, 7, outline);
+  put(9, 7, outline);
+  // Cheeks
+  put(5, 8, cheek);
+  put(10, 8, cheek);
+  // Smile
+  put(7, 9, outline);
+  put(8, 9, outline);
+  return g;
+};
+
+const PixelArtCanvas: React.FC<PixelArtCanvasProps> = ({ onPinToDesktop }) => {
+  const [gridSize, setGridSize] = useState<16 | 32>(16);
+  const [pixels, setPixels] = useState<(string | null)[]>(() => createStarterGrid16());
+  const [history, setHistory] = useState<HistorySnapshot[]>([]);
+  const [redoStack, setRedoStack] = useState<HistorySnapshot[]>([]);
+  const [activeColor, setActiveColor] = useState<string>('#1C1B1F');
+  const [tool, setTool] = useState<Tool>('pencil');
+  const [mirrorX, setMirrorX] = useState<boolean>(false);
+  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [pinnedFeedback, setPinnedFeedback] = useState<boolean>(false);
+
+  const isPaintingRef = useRef(false);
+  const strokeSavedRef = useRef(false);
+  const paintStepRef = useRef(0);
+  const { playPaint, playClick, playStick } = useSound();
+
+  const pushHistory = useCallback((size: 16 | 32, snapshot: (string | null)[]) => {
+    setHistory((prev) => [...prev.slice(-29), { gridSize: size, pixels: snapshot }]);
+    setRedoStack([]);
+  }, []);
+
+  const handleGridSizeChange = (nextSize: 16 | 32) => {
+    if (nextSize === gridSize) return;
+    playClick();
+    pushHistory(gridSize, pixels);
+    setGridSize(nextSize);
+    setPixels(nextSize === 16 ? createStarterGrid16() : Array(32 * 32).fill(null));
+  };
+
+  const floodFill = (startIdx: number, targetColor: string | null, replacement: string | null) => {
+    if (targetColor === replacement) return;
+    pushHistory(gridSize, pixels);
+    const next = [...pixels];
+    const queue = [startIdx];
+    const visited = new Set<number>();
+
+    while (queue.length > 0) {
+      const idx = queue.shift()!;
+      if (visited.has(idx)) continue;
+      visited.add(idx);
+      if (next[idx] !== targetColor) continue;
+      next[idx] = replacement;
+      const x = idx % gridSize;
+      const y = Math.floor(idx / gridSize);
+      if (x > 0) queue.push(idx - 1);
+      if (x < gridSize - 1) queue.push(idx + 1);
+      if (y > 0) queue.push(idx - gridSize);
+      if (y < gridSize - 1) queue.push(idx + gridSize);
+    }
+    setPixels(next);
+    playPaint(2);
+  };
+
+  const paintAt = (idx: number, isInitialClick: boolean) => {
+    if (tool === 'eyedropper') {
+      const picked = pixels[idx];
+      if (picked) {
+        setActiveColor(picked);
+        setTool('pencil');
+        playClick();
+      }
+      return;
+    }
+
+    if (tool === 'bucket') {
+      if (isInitialClick) {
+        floodFill(idx, pixels[idx], activeColor);
+      }
+      return;
+    }
+
+    const colorToApply = tool === 'eraser' ? null : activeColor;
+    const x = idx % gridSize;
+    const y = Math.floor(idx / gridSize);
+    const mirrorIdx = y * gridSize + (gridSize - 1 - x);
+
+    const willChange =
+      pixels[idx] !== colorToApply || (mirrorX && pixels[mirrorIdx] !== colorToApply);
+    if (!willChange) return;
+
+    if (!strokeSavedRef.current) {
+      pushHistory(gridSize, pixels);
+      strokeSavedRef.current = true;
+    }
+
+    setPixels((prev) => {
+      const next = [...prev];
+      next[idx] = colorToApply;
+      if (mirrorX) {
+        next[mirrorIdx] = colorToApply;
+      }
+      return next;
+    });
+
+    paintStepRef.current += 1;
+    playPaint(paintStepRef.current);
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    playClick();
+    const prev = history[history.length - 1];
+    setRedoStack((r) => [...r, { gridSize, pixels }]);
+    setGridSize(prev.gridSize);
+    setPixels(prev.pixels);
+    setHistory((h) => h.slice(0, -1));
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    playClick();
+    const next = redoStack[redoStack.length - 1];
+    setHistory((h) => [...h, { gridSize, pixels }]);
+    setGridSize(next.gridSize);
+    setPixels(next.pixels);
+    setRedoStack((r) => r.slice(0, -1));
+  };
+
+  const handleClear = () => {
+    playClick();
+    pushHistory(gridSize, pixels);
+    setPixels(Array(gridSize * gridSize).fill(null));
+  };
+
+  const renderToDataUrl = (scale = 12): string => {
+    const canvas = document.createElement('canvas');
+    canvas.width = gridSize * scale;
+    canvas.height = gridSize * scale;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    pixels.forEach((col, i) => {
+      if (!col) return;
+      const x = (i % gridSize) * scale;
+      const y = Math.floor(i / gridSize) * scale;
+      ctx.fillStyle = col;
+      ctx.fillRect(x, y, scale, scale);
+    });
+    return canvas.toDataURL('image/png');
+  };
+
+  const handleDownload = () => {
+    playClick();
+    const url = renderToDataUrl(16);
+    if (!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `khan-pixel-${gridSize}x${gridSize}.png`;
+    a.click();
+  };
+
+  const handlePin = () => {
+    const url = renderToDataUrl(12);
+    if (!url || !onPinToDesktop) return;
+    playStick();
+    onPinToDesktop(url, `pixel-${gridSize}x${gridSize}`);
+    setPinnedFeedback(true);
+    setTimeout(() => setPinnedFeedback(false), 1800);
+  };
+
   return (
-    <div className="flex flex-col items-center w-full h-full bg-[#edeeff] p-4 font-sans text-[#4d4d4d] overflow-hidden select-none">
-      
-      {/* Board Area - Centered and Scrollable if needed */}
-      <div className="flex-1 w-full overflow-auto flex items-center justify-center min-h-0 py-4">
-        <div 
-          className="grid bg-white shadow-sm flex-shrink-0"
+    <div
+      className="flex flex-col h-full bg-surface text-text-main select-none"
+      onPointerUp={() => {
+        isPaintingRef.current = false;
+        strokeSavedRef.current = false;
+      }}
+      onPointerLeave={() => {
+        isPaintingRef.current = false;
+        strokeSavedRef.current = false;
+      }}
+    >
+      {/* Top Studio Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 border-b border-border bg-bg-app/70">
+        <div className="flex items-center gap-1">
+          {(
+            [
+              { id: 'pencil', icon: <Pencil size={15} />, label: 'Pencil' },
+              { id: 'bucket', icon: <PaintBucket size={15} />, label: 'Fill' },
+              { id: 'eyedropper', icon: <Pipette size={15} />, label: 'Pick' },
+              { id: 'eraser', icon: <Eraser size={15} />, label: 'Erase' },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => {
+                playClick();
+                setTool(t.id);
+              }}
+              title={t.label}
+              className={`flex items-center justify-center gap-1.5 min-h-[38px] min-w-[38px] sm:min-h-0 sm:min-w-0 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 touch-manipulation ${
+                tool === t.id
+                  ? 'bg-primary text-primary-on shadow-sm'
+                  : 'hover:bg-neutral-90 dark:hover:bg-neutral-10 text-text-main'
+              }`}
+            >
+              {t.icon}
+              <span className="hidden sm:inline">{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              playClick();
+              setMirrorX((m) => !m);
+            }}
+            title="Mirror Symmetry X"
+            className={`min-h-[38px] min-w-[38px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1.5 rounded-lg border transition-colors touch-manipulation ${
+              mirrorX
+                ? 'border-primary bg-primary/15 text-primary'
+                : 'border-transparent hover:bg-neutral-90 dark:hover:bg-neutral-10 text-text-muted'
+            }`}
+          >
+            <FlipHorizontal2 size={15} />
+          </button>
+          <button
+            onClick={() => {
+              playClick();
+              setShowGrid((g) => !g);
+            }}
+            title="Toggle Grid Lines"
+            className={`min-h-[38px] min-w-[38px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1.5 rounded-lg border transition-colors touch-manipulation ${
+              showGrid
+                ? 'border-border bg-surface text-text-main'
+                : 'border-transparent text-text-muted hover:bg-neutral-90 dark:hover:bg-neutral-10'
+            }`}
+          >
+            <Grid3X3 size={15} />
+          </button>
+          <div className="w-px h-4 bg-border mx-0.5 sm:mx-1" />
+          <button
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            title="Undo"
+            className="min-h-[38px] min-w-[38px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1.5 rounded-lg hover:bg-neutral-90 dark:hover:bg-neutral-10 disabled:opacity-30 touch-manipulation"
+          >
+            <Undo2 size={15} />
+          </button>
+          <button
+            onClick={handleRedo}
+            disabled={redoStack.length === 0}
+            title="Redo"
+            className="min-h-[38px] min-w-[38px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1.5 rounded-lg hover:bg-neutral-90 dark:hover:bg-neutral-10 disabled:opacity-30 touch-manipulation"
+          >
+            <Redo2 size={15} />
+          </button>
+          <button
+            onClick={handleClear}
+            title="Clear Canvas"
+            className="min-h-[38px] min-w-[38px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1.5 rounded-lg hover:bg-error/15 text-error transition-colors touch-manipulation"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* Canvas Grid Area */}
+      <div className="flex-1 overflow-auto flex items-center justify-center p-3 sm:p-4 bg-bg-app/40 min-h-0">
+        <div
+          data-no-swipe="true"
+          onPointerMove={(e) => {
+            if (!isPaintingRef.current) return;
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            const idxAttr = el?.getAttribute('data-pixel-index');
+            if (idxAttr !== null && idxAttr !== undefined) {
+              const idx = Number(idxAttr);
+              if (!Number.isNaN(idx)) paintAt(idx, false);
+            }
+          }}
+          className="grid w-full max-w-[310px] sm:max-w-[384px] aspect-square touch-none bg-white dark:bg-[#19191c] border border-border shadow-medium rounded-lg overflow-hidden"
           style={{
-            gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-            width: 'fit-content',
-            // Using gap-0 to match pixel art style, though specification had blocks. 
-            // The visual result of the spec is a tight grid.
+            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+            backgroundImage:
+              'linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(-45deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.03) 75%), linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.03) 75%)',
+            backgroundSize: '12px 12px',
+            backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0',
           }}
         >
-          {Array.from({ length: TOTAL_CELLS }).map((_, i) => (
-            <div 
-              key={i} 
-              // Responsive cell sizing to try and fit in window, but maintaining pixel aspect
-              className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-8 lg:h-8 bg-[#85e850] transition-colors hover:opacity-90"
-              style={{ boxShadow: 'inset 1px 1px #00000029' }}
-              title={`Pixel ${i}`}
+          {pixels.map((color, i) => (
+            <div
+              key={i}
+              data-pixel-index={i}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                isPaintingRef.current = true;
+                strokeSavedRef.current = false;
+                paintAt(i, true);
+              }}
+              className={`w-full h-full cursor-crosshair transition-transform duration-75 hover:scale-[1.08] ${
+                showGrid ? 'border-[0.5px] border-black/8 dark:border-white/10' : ''
+              }`}
+              style={{ backgroundColor: color ?? 'transparent' }}
             />
           ))}
         </div>
       </div>
 
-      {/* Footer Area */}
-      <div className="w-full flex-shrink-0 flex flex-col gap-4 pt-4 border-t border-black/5 bg-[#edeeff]">
-        <div className="flex flex-wrap justify-between items-end gap-4">
-          
-          {/* Title */}
-          <div className="flex flex-col gap-1">
-            <h2 className="font-bold text-xl md:text-2xl leading-none font-roboto">
-              {GRID_SIZE} x {GRID_SIZE}
-            </h2>
-            <span className="text-lg leading-none opacity-80 font-roboto">Pixel Art canvas</span>
-          </div>
-
-          {/* Legend / Palette */}
-          <div className="flex gap-4 md:gap-6 items-end">
-            <LegendItem label="1 X" color="#340303" borderColor="#2f2f2f" />
-            <LegendItem label="2 X" color="#3bcf07" borderColor="#2f2f2f" />
-            <LegendItem label="3 X" color="#9df270" borderColor="#2f2f2f" />
-            <LegendItem label="4 X" color="#fff" borderColor="#2f2f2f" />
-            <LegendItem label="5 X" color="#85e850" borderColor="#2f2f2f" isRounded />
-          </div>
+      {/* Bottom Palette & Export Bar */}
+      <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t border-border bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+        <div className="flex items-center justify-between sm:justify-start gap-1.5 flex-wrap">
+          {PALETTE.map((swatch) => (
+            <button
+              key={swatch}
+              onClick={() => {
+                playClick();
+                setActiveColor(swatch);
+                if (tool === 'eraser' || tool === 'eyedropper') setTool('pencil');
+              }}
+              aria-label={`Select color ${swatch}`}
+              className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full border transition-transform touch-manipulation ${
+                activeColor === swatch && tool !== 'eraser'
+                  ? 'scale-115 ring-2 ring-primary ring-offset-2 ring-offset-surface border-text-main'
+                  : 'border-black/20 hover:scale-105'
+              }`}
+              style={{ backgroundColor: swatch }}
+            />
+          ))}
+          <label
+            title="Custom color"
+            className="w-7 h-7 sm:w-6 sm:h-6 rounded-full border border-border overflow-hidden cursor-pointer flex items-center justify-center bg-bg-app text-[11px] font-mono touch-manipulation"
+          >
+            <input
+              type="color"
+              value={activeColor}
+              onChange={(e) => {
+                setActiveColor(e.target.value);
+                if (tool === 'eraser') setTool('pencil');
+              }}
+              className="opacity-0 w-0 h-0 absolute"
+            />
+            +
+          </label>
         </div>
 
-        {/* Branding */}
-        <div className="flex justify-between items-center pt-2 opacity-80">
-          <div className="flex items-center gap-3">
-             <LogoIcon />
-             <span className="font-bold tracking-tight">vektoria!</span>
+        <div className="flex items-center justify-between sm:justify-end gap-2">
+          <div className="flex items-center p-0.5 rounded-lg bg-bg-app border border-border text-[11px] font-mono tabular-nums">
+            <button
+              onClick={() => handleGridSizeChange(16)}
+              className={`px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-md transition-colors touch-manipulation ${
+                gridSize === 16 ? 'bg-surface text-text-main shadow-sm' : 'text-text-muted'
+              }`}
+            >
+              16×16
+            </button>
+            <button
+              onClick={() => handleGridSizeChange(32)}
+              className={`px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-md transition-colors touch-manipulation ${
+                gridSize === 32 ? 'bg-surface text-text-main shadow-sm' : 'text-text-muted'
+              }`}
+            >
+              32×32
+            </button>
           </div>
-          <span className="font-roboto text-sm md:text-base">[your name here]</span>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              title="Download PNG"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:px-2.5 sm:py-1.5 min-h-[38px] sm:min-h-0 rounded-lg border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap shrink-0 touch-manipulation"
+            >
+              <Download size={13} />
+              <span>PNG</span>
+            </button>
+
+            {onPinToDesktop && (
+              <button
+                onClick={handlePin}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-3 sm:py-1.5 min-h-[38px] sm:min-h-0 rounded-lg bg-primary text-primary-on text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 touch-manipulation"
+              >
+                <Pin size={13} />
+                <span>{pinnedFeedback ? 'Pinned!' : 'Pin Sticker'}</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 };
-
-// Helper Components
-
-const LegendItem: React.FC<{ label: string; color: string; borderColor: string; isRounded?: boolean }> = ({ label, color, borderColor, isRounded }) => (
-  <div className="flex flex-col items-center gap-2">
-    <span className="text-xs md:text-sm font-bold opacity-80 font-roboto shadow-sm text-shadow">{label}</span>
-    <div 
-      className={`w-8 h-8 md:w-10 md:h-10 box-border border-2 md:border-4 ${isRounded ? 'rounded-full' : 'rounded-sm'}`}
-      style={{ backgroundColor: color, borderColor: borderColor }}
-    />
-  </div>
-);
-
-const LogoIcon = () => (
-  <svg width="32" height="32" viewBox="0 0 42 43" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M32.0272 0C26.9597 0.000128406 22.8517 4.10637 22.8516 9.17166C22.8565 12.9903 25.2277 16.4065 28.8047 17.7477C29.7763 18.2865 30.3793 19.3096 30.3796 20.4202L30.2953 21.4007C30.2954 23.0892 31.6648 24.4579 33.354 24.4578C34.329 24.456 35.0805 23.9404 35.8191 23.2021C39.6488 19.3741 41.5979 15.9126 41.6075 11.258C41.6014 9.67283 41.3485 8.09824 40.858 6.59071H40.8261C39.6803 2.68611 36.0978 0.00287281 32.0269 0.000298564L32.0272 0Z" fill="#2F2F35" />
-    <path d="M6.11723 0.000427246C2.73878 0.000476163 6.72899e-05 2.73803 0 6.11498V9.31805C0.011684 21.1842 5.32704 32.4245 14.4928 39.9656C16.1677 41.2803 18.8359 42.7989 21.4107 42.8025C26.4784 42.8023 30.5864 38.6959 30.5863 33.6305C30.5802 31.1869 29.6015 28.8527 27.8744 27.1384C25.7408 25.5921 23.9432 24.0848 20.837 20.9734C14.9304 15.0693 13.9153 11.546 12.0599 4.61376C11.3155 1.83691 8.4839 0.00343562 6.11754 0.000427246H6.11723Z" fill="#2F2F35" />
-  </svg>
-);
 
 export default PixelArtCanvas;

@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-roboto: "Plus Jakarta Sans", sans-serif;
+  --font-serif: Fraunces, serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-bg: var(--bg-app);
+  --color-bg-app: var(--bg-app);
+  --color-surface: var(--bg-surface);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-container: var(--surface-container);
+  --color-surface-high: var(--surface-high);
+  --color-surface-highest: var(--surface-highest);
+  --color-text-main: var(--text-main);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border-main);
+  --color-outline: var(--outline-strong);
+
+  --color-primary: var(--m3-primary);
+  --color-primary-on: var(--m3-on-primary);
+  --color-primary-container: var(--m3-primary-container);
+  --color-primary-container-on: var(--m3-on-primary-container);
+
+  --color-primary-100: var(--primary-100);
+  --color-primary-40: var(--primary-40);
+  --color-primary-80: var(--primary-80);
+  --color-primary-90: var(--primary-90);
+  --color-primary-95: var(--primary-95);
+
+  --color-secondary: var(--m3-secondary);
+  --color-secondary-container: var(--m3-secondary-container);
+  --color-secondary-40: var(--secondary-40);
+  --color-secondary-90: var(--secondary-90);
+  --color-secondary-95: var(--secondary-95);
+
+  --color-tertiary: var(--m3-tertiary);
+  --color-tertiary-container: var(--m3-tertiary-container);
+  --color-tertiary-40: var(--tertiary-40);
+  --color-tertiary-90: var(--tertiary-90);
+  --color-tertiary-95: var(--tertiary-95);
+
+  --color-neutral-10: var(--neutral-10);
+  --color-neutral-20: var(--neutral-20);
+  --color-neutral-80: var(--neutral-80);
+  --color-neutral-90: var(--neutral-90);
+  --color-neutral-95: var(--neutral-95);
+  --color-neutral-99: var(--neutral-99);
+
+  --color-error: var(--m3-error);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-medium: var(--shadow-medium);
+  --shadow-hard: var(--shadow-hard);
+
+  --backdrop-blur-glass: var(--glass-blur);
+}
+
+:root {
+  --bg-app: #fcf8f9;
+  --surface-dim: #ddd8dc;
+  --bg-surface: #ffffff;
+  --surface-container: #f1ecf0;
+  --surface-high: #ece7eb;
+  --surface-highest: #e6e1e5;
+  --text-main: #1c1b1f;
+  --text-muted: #605d62;
+  --border-main: #e6e1e5;
+  --outline-strong: #787579;
+
+  --m3-primary: #7a5900;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #ffe084;
+  --m3-on-primary-container: #291800;
+  --m3-secondary: #615e57;
+  --m3-secondary-container: #e8e3da;
+  --m3-tertiary: #54634f;
+  --m3-tertiary-container: #d8e8d0;
+  --m3-error: #ba1a1a;
+
+  --wallpaper-glow-1: #fff0c9;
+  --wallpaper-glow-2: #f7f1e8;
+
+  --primary-40: #7a5900;
+  --primary-80: #f4c300;
+  --primary-90: #ffe084;
+  --primary-95: #fff0c9;
+  --primary-100: #ffffff;
+  --secondary-40: #615e57;
+  --secondary-90: #e8e3da;
+  --secondary-95: #f7f1e8;
+  --tertiary-40: #54634f;
+  --tertiary-90: #d8e8d0;
+  --tertiary-95: #e6f6de;
+  --neutral-10: #1c1b1f;
+  --neutral-20: #313033;
+  --neutral-80: #cac5c9;
+  --neutral-90: #e6e1e5;
+  --neutral-95: #f4f3f7;
+  --neutral-99: #fffbff;
+  --error-40: #ba1a1a;
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-medium: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-hard: 0 12px 36px rgba(0, 0, 0, 0.14);
+  --glass-blur: 14px;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body,
+div,
+span,
+button,
+input,
+textarea {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, box-shadow;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  transition-duration: 180ms;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  overscroll-behavior: none;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #resume-print-sheet,
+  #resume-print-sheet * {
+    visibility: visible !important;
+  }
+  #resume-print-sheet {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+    padding: 24px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

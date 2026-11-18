@@ -1,11 +1,14 @@
 import React from 'react';
 import DesktopEnvironment from './components/DesktopEnvironment';
 import { ThemeProvider } from './theme/ThemeContext';
+import { SoundProvider } from './contexts/SoundContext';
 
 function App() {
   return (
     <ThemeProvider>
-      <DesktopEnvironment />
+      <SoundProvider>
+        <DesktopEnvironment />
+      </SoundProvider>
     </ThemeProvider>
   );
 }
