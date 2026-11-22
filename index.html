@@ -2,11 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <script>
+      (function () {
+        var isExt = function (src, stack) {
+          return (
+            (typeof src === 'string' && /^(chrome|moz|safari)-extension:\/\//.test(src)) ||
+            (typeof stack === 'string' && /(chrome|moz|safari)-extension:\/\//.test(stack))
+          );
+        };
+        window.addEventListener(
+          'error',
+          function (e) {
+            if (isExt(e.filename, e.error && e.error.stack)) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+            }
+          },
+          true
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (e) {
+            if (isExt('', e.reason && e.reason.stack)) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+            }
+          },
+          true
+        );
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-    <title>KhanOS — Creative Product-OS Portfolio</title>
-    <meta name="description" content="FydeOS-inspired interactive web OS portfolio showcasing software releases, engineering dossier, Pixel Studio, Live Code Lab, Desktop Ink, and a unified Material 3 tonal engine." />
-    <meta property="og:title" content="KhanOS — Creative Product-OS Portfolio" />
-    <meta property="og:description" content="FydeOS-inspired interactive web OS portfolio showcasing software releases, engineering dossier, Pixel Studio, Live Code Lab, Desktop Ink, and a unified Material 3 tonal engine." />
+    <title>KhanOS — Khan Hassan · Cloud &amp; GenAI Portfolio</title>
+    <meta name="description" content="Khan Hassan's interactive Product-OS portfolio — Computer Engineering student in Mumbai building Cloud, Backend &amp; GenAI systems including CrisisMesh AI, plus Pixel Studio and Live Code Lab." />
+    <meta property="og:title" content="KhanOS — Khan Hassan · Cloud &amp; GenAI Portfolio" />
+    <meta property="og:description" content="Khan Hassan's interactive Product-OS portfolio — Computer Engineering student in Mumbai building Cloud, Backend &amp; GenAI systems including CrisisMesh AI, plus Pixel Studio and Live Code Lab." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />

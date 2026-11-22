@@ -64,6 +64,9 @@ const Sticker: React.FC<StickerProps> = ({
   if (variant === 'error') {
     return (
       <motion.div
+        data-pong-sticker={isGrid ? undefined : id}
+        data-pong-sticker-text={isGrid ? undefined : text}
+        data-pong-sticker-tone={isGrid ? undefined : tone}
         drag
         dragConstraints={isGrid ? undefined : constraintsRef}
         dragSnapToOrigin={isGrid}
@@ -131,6 +134,9 @@ const Sticker: React.FC<StickerProps> = ({
   if (variant === 'pixel' && imageUrl) {
     return (
       <motion.div
+        data-pong-sticker={isGrid ? undefined : id}
+        data-pong-sticker-text={isGrid ? undefined : text}
+        data-pong-sticker-tone={isGrid ? undefined : tone}
         drag
         dragConstraints={isGrid ? undefined : constraintsRef}
         dragSnapToOrigin={isGrid}
@@ -192,6 +198,9 @@ const Sticker: React.FC<StickerProps> = ({
     const toneClass = TONE_CLASSES[tone];
     return (
       <motion.div
+        data-pong-sticker={isGrid ? undefined : id}
+        data-pong-sticker-text={isGrid ? undefined : text}
+        data-pong-sticker-tone={isGrid ? undefined : tone}
         drag
         dragConstraints={isGrid ? undefined : constraintsRef}
         dragSnapToOrigin={isGrid}
@@ -251,6 +260,9 @@ const Sticker: React.FC<StickerProps> = ({
 
   return (
     <motion.div
+      data-pong-sticker={isGrid ? undefined : id}
+      data-pong-sticker-text={isGrid ? undefined : text}
+      data-pong-sticker-tone={isGrid ? undefined : tone}
       drag
       dragConstraints={isGrid ? undefined : constraintsRef}
       dragSnapToOrigin={isGrid}

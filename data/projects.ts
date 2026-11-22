@@ -2,30 +2,29 @@ import { ProjectItem } from '../types';
 
 export const PORTFOLIO_PROJECTS: ProjectItem[] = [
   {
-    id: 'fintech-treasury',
-    title: 'Pulse Treasury OS',
-    filename: 'Fintech_Dashboard.tsx',
+    id: 'crisismesh-ai',
+    title: 'CrisisMesh AI',
+    filename: 'CrisisMesh_Core.py',
     category: 'Featured Releases',
     size: '124KB',
     year: '2026',
-    role: 'Principal Frontend Engineer',
+    role: 'Cloud & GenAI Engineer',
     summary:
-      'High-throughput real-time treasury analytics workstation engineered for sub-frame sparkline scrubbing, keyboard command routing, and strict tabular numeric legibility.',
+      'Resilient disaster-communication and incident triage framework engineered to merge fragmented emergency signals, rank urgency transparently, and coordinate response on cloud-native serverless infrastructure.',
     highlights: [
-      'Sub-16ms canvas + SVG hybrid chart scrubbing across 10k+ live ticks',
-      'Keyboard-first command palette and split-pane workspace layouts',
-      'Zero layout shift under streaming WebSocket state updates',
+      'AI-assisted signal triage and priority scoring across low-bandwidth disaster updates',
+      'Containerized Python & API backend built for resilient GCP serverless deployment',
+      'Sub-frame real-time incident telemetry scrubbing with zero layout shift',
     ],
-    stack: ['React', 'TypeScript', 'SVG Charts', 'WebSockets', 'Tailwind CSS'],
+    stack: ['Python', 'Vertex AI', 'Gemini', 'GCP', 'Serverless', 'TypeScript'],
     previewKind: 'fintech',
-    githubUrl: 'https://github.com',
-    liveUrl: 'https://github.com',
+    githubUrl: 'https://github.com/KHAN5461',
     specs: [
       {
         id: 'scrub-math',
         label: 'Unified Pointer Scrub',
         metric: '< 0.4ms',
-        reason: 'Maps normalized clientX ratios directly to point indices via touch-none pointer events—zero DOM hit-test churn.',
+        reason: 'Maps normalized clientX ratios directly to telemetry indices via touch-none pointer events—zero DOM hit-test churn.',
         x: 62,
         y: 66,
       },
@@ -33,31 +32,30 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
         id: 'tabular-nums',
         label: 'Tabular Num Guard',
         metric: '0px CLS',
-        reason: 'Uses font-variant-numeric: tabular-nums so rapid price scrubbing never shifts neighboring controls.',
+        reason: 'Uses font-variant-numeric: tabular-nums so rapid signal scrubbing never shifts neighboring controls.',
         x: 22,
         y: 26,
       },
     ],
   },
   {
-    id: 'atelier-commerce',
-    title: 'Atelier Spatial Store',
-    filename: 'Luxury_Ecomm.tsx',
+    id: 'localized-tourism',
+    title: 'Localized Tourism Data Hub',
+    filename: 'Tourism_GenAI.py',
     category: 'Featured Releases',
     size: '86KB',
     year: '2025',
-    role: 'Creative Technologist',
+    role: 'Full-Stack & GenAI Builder',
     summary:
-      'Editorial flagship commerce experience pairing tactile material finish selectors, perspective hover optics, and spring-interpolated page transitions.',
+      'Generative AI discovery platform localizing regional tourism datasets into contextual cultural itineraries, regional language summaries, and curated visual guides.',
     highlights: [
-      'GPU-composited 3D perspective card tilt with radial specular sheen',
-      'Material-first editorial layout achieving 99 Lighthouse performance',
-      'Accessible keyboard and reduced-motion fallbacks across every transition',
+      'Gemini & Streamlit pipeline transforming raw regional tourism feeds into localized guides',
+      'Prompt-engineered regional curation with fast theme & region switching',
+      'Accessible keyboard and touch-first responsive card interactions',
     ],
-    stack: ['Next.js', 'Three.js', 'Framer Motion', 'Design Systems'],
+    stack: ['Gemini', 'Streamlit', 'Python', 'GCP', 'React'],
     previewKind: 'ecomm',
-    githubUrl: 'https://github.com',
-    liveUrl: 'https://github.com',
+    githubUrl: 'https://github.com/KHAN5461',
     specs: [
       {
         id: 'gpu-tilt',
@@ -70,9 +68,9 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
       },
       {
         id: 'material-swap',
-        label: 'Instant Swatch State',
+        label: 'Instant Region Switch',
         metric: '1-frame',
-        reason: 'Material pigments swap synchronously on CSS variables with zero asset network latency.',
+        reason: 'Regional palettes and contextual summaries switch synchronously with zero layout jank.',
         x: 68,
         y: 74,
         preset: 'profile',
@@ -86,7 +84,7 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
     category: 'Lab Experiments',
     size: '14KB',
     year: '2026',
-    role: 'Creative Coder',
+    role: 'Creative Technologist',
     summary:
       'Interactive orbital particle field and acoustic ripple simulator driven by pointer gravity, harmonic oscillation, and alpha decay.',
     highlights: [
@@ -95,7 +93,7 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
     ],
     stack: ['Canvas 2D', 'Physics', 'Trigonometry'],
     previewKind: 'generative',
-    githubUrl: 'https://github.com',
+    githubUrl: 'https://github.com/KHAN5461',
     specs: [
       {
         id: 'raf-decay',
@@ -124,7 +122,7 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
     category: 'Lab Experiments',
     size: '28KB',
     year: '2025',
-    role: 'Audio & UI Engineer',
+    role: 'Multimedia & UI Builder',
     summary:
       'Zero-dependency 8-step pentatonic Web Audio sequencer with procedural triangle oscillators, clickless gain envelopes, and real-time step toggling.',
     highlights: [
@@ -133,7 +131,7 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
     ],
     stack: ['Web Audio API', 'React', 'TypeScript'],
     previewKind: 'synth',
-    githubUrl: 'https://github.com',
+    githubUrl: 'https://github.com/KHAN5461',
     specs: [
       {
         id: 'gain-env',
@@ -169,7 +167,7 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
     ],
     stack: ['TypeScript', 'Framer Motion', 'Pointer Events'],
     previewKind: 'spring-hook',
-    githubUrl: 'https://github.com',
+    githubUrl: 'https://github.com/KHAN5461',
     specs: [
       {
         id: 'spring-curve',
@@ -198,7 +196,7 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
     category: 'Design Assets',
     size: '9KB',
     year: '2026',
-    role: 'Design Systems Lead',
+    role: 'Systems & UI Engineer',
     summary:
       '100-step Material tonal palette generator extracting WCAG-balanced surface, primary, secondary, and contrast tokens directly from wallpapers or hex seeds.',
     highlights: [
@@ -207,7 +205,7 @@ export const PORTFOLIO_PROJECTS: ProjectItem[] = [
     ],
     stack: ['Material Color Utilities', 'CSS Variables', 'Design Tokens'],
     previewKind: 'tokens',
-    githubUrl: 'https://github.com',
+    githubUrl: 'https://github.com/KHAN5461',
     specs: [
       {
         id: 'hct-palette',

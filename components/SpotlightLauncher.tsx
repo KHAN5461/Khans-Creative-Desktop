@@ -15,6 +15,8 @@ import {
   Columns2,
   Briefcase,
   Minimize2,
+  Power,
+  Gamepad2,
 } from 'lucide-react';
 import { PORTFOLIO_PROJECTS } from '../data/projects';
 import { ThemeId, WindowId, WorkspacePreset } from '../types';
@@ -40,6 +42,8 @@ interface SpotlightLauncherProps {
   onOpenNoteCreator: () => void;
   onSetTheme: (id: ThemeId) => void;
   onResetDesktop: () => void;
+  onReboot: () => void;
+  onStartPong: (mode?: 'ai' | '2p' | 'bricks') => void;
 }
 
 const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
@@ -52,6 +56,8 @@ const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
   onOpenNoteCreator,
   onSetTheme,
   onResetDesktop,
+  onReboot,
+  onStartPong,
 }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -189,6 +195,22 @@ const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
         run: () => onSetTheme('dev'),
       },
       {
+        id: 'act-pong',
+        label: 'Play Desktop Pong',
+        subtitle: 'Morph dock, menu ball & search pills into vs AI, 2P, or Brick-Break',
+        group: 'Actions',
+        icon: <Gamepad2 size={16} />,
+        run: () => onStartPong('ai'),
+      },
+      {
+        id: 'act-pong-bricks',
+        label: 'Play Sticker Brick-Break',
+        subtitle: 'Turn your desktop stickers into breakable Pong bricks',
+        group: 'Actions',
+        icon: <Gamepad2 size={16} />,
+        run: () => onStartPong('bricks'),
+      },
+      {
         id: 'act-reset',
         label: 'Reset Desktop Layout',
         subtitle: 'Restore default stickers and notes',
@@ -196,8 +218,16 @@ const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
         icon: <RotateCcw size={16} />,
         run: onResetDesktop,
       },
+      {
+        id: 'act-reboot',
+        label: 'Reboot KhanOS',
+        subtitle: 'Restart desktop session and replay boot sequence',
+        group: 'Actions',
+        icon: <Power size={16} />,
+        run: onReboot,
+      },
     ],
-    [onOpenWindow, onOpenProject, onApplyWorkspace, onToggleInk, onOpenNoteCreator, onSetTheme, onResetDesktop]
+    [onOpenWindow, onOpenProject, onApplyWorkspace, onToggleInk, onOpenNoteCreator, onSetTheme, onResetDesktop, onReboot, onStartPong]
   );
 
   const filtered = useMemo(() => {

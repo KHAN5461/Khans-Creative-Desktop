@@ -81,40 +81,43 @@ const Settings: React.FC<SettingsProps> = ({ toyMode, onChangeToyMode, onResetDe
   return (
     <div className="flex flex-col h-full bg-surface text-text-main select-none">
       {/* Header + Segmented Tabs */}
-      <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-bold">System Settings</h2>
-          <p className="text-text-muted text-xs">Unified Material 3 Tonal Engine &amp; OS preferences</p>
-        </div>
+      <div className="px-4 sm:px-5 @4xl:px-8 pt-4 pb-3 border-b border-border">
+        <div className="max-w-5xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold">System Settings</h2>
+            <p className="text-text-muted text-xs">Unified Material 3 Tonal Engine &amp; OS preferences</p>
+          </div>
 
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-bg-app border border-border self-stretch sm:self-auto">
-          {(
-            [
-              { id: 'themes', label: 'Themes' },
-              { id: 'wallpapers', label: 'Wallpapers' },
-              { id: 'behavior', label: 'Behavior' },
-            ] as const
-          ).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => {
-                playClick();
-                setTab(t.id);
-              }}
-              className={`flex-1 sm:flex-none px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 touch-manipulation ${
-                tab === t.id
-                  ? 'bg-surface text-text-main shadow-sm'
-                  : 'text-text-muted hover:text-text-main'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-bg-app border border-border self-stretch sm:self-auto">
+            {(
+              [
+                { id: 'themes', label: 'Themes' },
+                { id: 'wallpapers', label: 'Wallpapers' },
+                { id: 'behavior', label: 'Behavior' },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  playClick();
+                  setTab(t.id);
+                }}
+                className={`flex-1 sm:flex-none px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 touch-manipulation ${
+                  tab === t.id
+                    ? 'bg-surface text-text-main shadow-sm'
+                    : 'text-text-muted hover:text-text-main'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Tab Body */}
-      <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-5 sm:space-y-6">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 @4xl:p-8">
+        <div className="max-w-5xl mx-auto w-full space-y-5 sm:space-y-6">
         {tab === 'themes' && (
           <section className="space-y-4 sm:space-y-5">
             {/* Appearance Mode + Contrast Level (M3) */}
@@ -166,7 +169,7 @@ const Settings: React.FC<SettingsProps> = ({ toyMode, onChangeToyMode, onResetDe
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 @4xl:grid-cols-3 gap-3">
               {THEME_PRESETS.map((preset) => {
                 const selected = !isDynamicActive && themeId === preset.id;
                 return (
@@ -255,7 +258,7 @@ const Settings: React.FC<SettingsProps> = ({ toyMode, onChangeToyMode, onResetDe
               />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 @4xl:grid-cols-4 gap-3 @4xl:gap-4">
               {[...PRESET_WALLPAPERS, ...(customWallpaper ? [customWallpaper] : [])].map((wp) => {
                 const isSelected = wallpaper.id === wp.id;
                 return (
@@ -422,6 +425,7 @@ const Settings: React.FC<SettingsProps> = ({ toyMode, onChangeToyMode, onResetDe
             </div>
           </section>
         )}
+        </div>
       </div>
     </div>
   );

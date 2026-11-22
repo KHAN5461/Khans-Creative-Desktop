@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search } from 'lucide-react';
 import { DockItemData, ToyMode } from '../types';
@@ -13,6 +13,11 @@ interface DockProps {
   onCycleToyMode: () => void;
   onOpenSpotlight: () => void;
   onOpenResume: () => void;
+  onOpenSettings: () => void;
+  onStartPong?: () => void;
+  onStartPacman?: (origin: { x: number; y: number }) => void;
+  isHidden?: boolean;
+  isPongActive?: boolean;
 }
 
 const MenuIcon: React.FC<{ isOpen: boolean }> = ({ isOpen }) => (
@@ -48,6 +53,11 @@ const Drawer: React.FC<{ isOpen: boolean; items: DockItemData[]; onClose: () => 
             className="fixed inset-0 z-[84] pointer-events-auto bg-transparent"
           />
           <motion.div
+            data-no-context-menu="true"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             initial={{ opacity: 0, y: 16, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 14, scale: 0.95 }}
@@ -117,6 +127,9 @@ const Drawer: React.FC<{ isOpen: boolean; items: DockItemData[]; onClose: () => 
   );
 };
 
+const LONG_PRESS_GRACE_MS = 120;
+const LONG_PRESS_DURATION_MS = 550;
+
 const Dock: React.FC<DockProps> = ({
   items,
   isInkMode,
@@ -125,12 +138,49 @@ const Dock: React.FC<DockProps> = ({
   onCycleToyMode,
   onOpenSpotlight,
   onOpenResume,
+  onOpenSettings,
+  onStartPong,
+  onStartPacman,
+  isHidden = false,
+  isPongActive = false,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const { playClick } = useSound();
+  const [chargeProgress, setChargeProgress] = useState(0);
+  const { playClick, playChargeTick } = useSound();
 
-  React.useEffect(() => {
+  const menuBtnRef = useRef<HTMLButtonElement | null>(null);
+  const chargeRafRef = useRef<number | null>(null);
+  const chargeStartRef = useRef<number>(0);
+  const lastTickBucketRef = useRef<number>(0);
+  const longPressTriggeredRef = useRef<boolean>(false);
+
+  const cancelCharge = useCallback(() => {
+    if (chargeRafRef.current !== null) {
+      cancelAnimationFrame(chargeRafRef.current);
+      chargeRafRef.current = null;
+    }
+    lastTickBucketRef.current = 0;
+    setChargeProgress(0);
+  }, []);
+
+  useEffect(() => {
+    if (isHidden || isPongActive) {
+      setIsMenuOpen(false);
+      setHoveredId(null);
+      cancelCharge();
+    }
+  }, [isHidden, isPongActive, cancelCharge]);
+
+  useEffect(() => {
+    return () => {
+      if (chargeRafRef.current !== null) {
+        cancelAnimationFrame(chargeRafRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isMenuOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsMenuOpen(false);
@@ -139,40 +189,106 @@ const Dock: React.FC<DockProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isMenuOpen]);
 
+  const handleMenuPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if ((!onStartPong && !onStartPacman) || isHidden || isPongActive) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    cancelCharge();
+    longPressTriggeredRef.current = false;
+    chargeStartRef.current = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - chargeStartRef.current;
+      if (elapsed >= LONG_PRESS_DURATION_MS) {
+        longPressTriggeredRef.current = true;
+        cancelCharge();
+        setIsMenuOpen(false);
+        if (onStartPong) {
+          onStartPong();
+        } else if (onStartPacman) {
+          const rect = menuBtnRef.current?.getBoundingClientRect();
+          const origin = rect
+            ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+            : { x: 56, y: window.innerHeight - 40 };
+          onStartPacman(origin);
+        }
+        return;
+      }
+
+      if (elapsed >= LONG_PRESS_GRACE_MS) {
+        const progress = Math.min(
+          1,
+          (elapsed - LONG_PRESS_GRACE_MS) / (LONG_PRESS_DURATION_MS - LONG_PRESS_GRACE_MS)
+        );
+        setChargeProgress(progress);
+
+        const bucket = progress >= 0.7 ? 2 : progress >= 0.3 ? 1 : 0;
+        if (bucket > lastTickBucketRef.current) {
+          lastTickBucketRef.current = bucket;
+          playChargeTick(progress);
+        }
+      }
+
+      chargeRafRef.current = requestAnimationFrame(tick);
+    };
+
+    chargeRafRef.current = requestAnimationFrame(tick);
+  };
+
   const desktopPinnedIds = [
     'welcome',
     'folder',
     'resume',
     'pixel',
-    'code-brackets',
     'terminal',
-    'settings',
   ];
   const mobilePinnedIds = ['welcome', 'resume', 'github'];
+  const excludedMenuIds = new Set(['code-brackets', 'settings']);
 
   const desktopItems = items.filter((item) => desktopPinnedIds.includes(item.id));
   const mobileItems = mobilePinnedIds
     .map((id) => items.find((item) => item.id === id))
     .filter((item): item is DockItemData => Boolean(item));
-  const drawerItems = items.filter((item) => item.type !== 'separator');
+  const drawerItems = items.filter(
+    (item) => item.type !== 'separator' && !excludedMenuIds.has(item.id)
+  );
+
+  const ringRadius = 18;
+  const ringCircumference = 2 * Math.PI * ringRadius;
 
   return (
     <>
       <Drawer
-        isOpen={isMenuOpen}
+        isOpen={isMenuOpen && !isHidden && !isPongActive}
         items={drawerItems}
         onClose={() => setIsMenuOpen(false)}
       />
 
-      <div className="fixed bottom-2 md:bottom-3 left-0 right-0 flex justify-center px-2.5 md:px-6 z-[80] pointer-events-none">
+      <div
+        aria-hidden={isHidden || isPongActive}
+        className={`fixed bottom-2 md:bottom-3 left-0 right-0 flex justify-center px-2.5 md:px-6 z-[80] pointer-events-none ${
+          isPongActive
+            ? 'opacity-0'
+            : `transition-all duration-300 ease-out ${
+                isHidden ? 'translate-y-28 opacity-0' : 'translate-y-0 opacity-100'
+              }`
+        }`}
+      >
         {/* FydeOS Floating Shelf */}
         <div
-          className="
-            relative pointer-events-auto flex items-center justify-between gap-2
+          data-pong-dock="true"
+          data-no-context-menu="true"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          className={`
+            relative flex items-center justify-between gap-2
             w-full max-w-5xl h-[60px] md:h-[62px]
             rounded-[28px]
             px-2.5 md:px-4
-          "
+            ${isHidden || isPongActive ? 'pointer-events-none' : 'pointer-events-auto'}
+          `}
         >
           <div
             aria-hidden="true"
@@ -181,16 +297,58 @@ const Dock: React.FC<DockProps> = ({
         {/* Left: App Launcher + Spotlight Search */}
         <div className="flex items-center gap-1.5 shrink-0">
           <motion.button
+            ref={menuBtnRef}
+            data-pong-menu-btn="true"
+            data-no-context-menu="true"
             whileHover={{ scale: 1.07 }}
             whileTap={{ scale: 0.94 }}
+            onPointerDown={handleMenuPointerDown}
+            onPointerUp={cancelCharge}
+            onPointerLeave={cancelCharge}
+            onPointerCancel={cancelCharge}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             onClick={() => {
+              if (longPressTriggeredRef.current) {
+                longPressTriggeredRef.current = false;
+                return;
+              }
               playClick();
               setIsMenuOpen((p) => !p);
             }}
-            aria-label="Toggle App Launcher"
-            title="App Launcher"
-            className="flex h-[44px] w-[44px] md:h-[40px] md:w-[40px] items-center justify-center rounded-full border border-border bg-bg-app text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10 transition-colors touch-manipulation"
+            aria-label="Toggle App Launcher (Hold to play Pong)"
+            title="App Launcher (Hold to play Pong)"
+            className="relative flex h-[44px] w-[44px] md:h-[40px] md:w-[40px] items-center justify-center rounded-full border border-border bg-bg-app text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10 transition-colors touch-manipulation select-none"
           >
+            {chargeProgress > 0 && (
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 42 42"
+                className="pointer-events-none absolute -inset-[3px] w-[calc(100%+6px)] h-[calc(100%+6px)] -rotate-90"
+              >
+                <circle
+                  cx="21"
+                  cy="21"
+                  r={ringRadius}
+                  fill="none"
+                  stroke="var(--border-subtle)"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx="21"
+                  cy="21"
+                  r={ringRadius}
+                  fill="none"
+                  stroke="var(--primary)"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={ringCircumference}
+                  strokeDashoffset={ringCircumference * (1 - chargeProgress)}
+                />
+              </svg>
+            )}
             <MenuIcon isOpen={isMenuOpen} />
           </motion.button>
 
@@ -381,6 +539,7 @@ const Dock: React.FC<DockProps> = ({
           toyMode={toyMode}
           onCycleToyMode={onCycleToyMode}
           onOpenResume={onOpenResume}
+          onOpenSettings={onOpenSettings}
         />
         </div>
       </div>

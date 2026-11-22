@@ -7,8 +7,6 @@ import {
   Search,
   User,
   Columns2,
-  Briefcase,
-  Minimize2,
 } from 'lucide-react';
 import Sticker from './Sticker';
 import StickerCreatorModal from './StickerCreatorModal';
@@ -26,7 +24,8 @@ import { PORTFOLIO_PROJECTS } from '../data/projects';
 import Settings from './Settings';
 import DesktopToyLayer from './DesktopToyLayer';
 import SpotlightLauncher from './SpotlightLauncher';
-import { ContextMenu } from './ContextMenu';
+import DesktopPongOverlay, { PongMode, PongUiGeometry, StickerSnapshot } from './DesktopPongOverlay';
+import { ContextMenu, ContextMenuItem, ContextMenuQuickAction } from './ContextMenu';
 import { useTheme } from '../theme/ThemeContext';
 import { useSound } from '../contexts/SoundContext';
 import {
@@ -59,11 +58,11 @@ import {
 
 const INITIAL_STICKERS: StickerData[] = [
   { id: '1', text: "hi-i'm-khan", rotation: -1.7, left: '6%', top: '8%', tone: 'amber' },
-  { id: '2', text: 'pixel-perfect', rotation: 1.4, left: '72%', top: '10%', tone: 'surface' },
-  { id: '3', text: 'design-systems', rotation: -1.1, left: '80%', top: '26%', tone: 'mint' },
-  { id: '4', text: 'logic-with-soul', rotation: -1.4, left: '6%', top: '24%', variant: 'highlight', tone: 'amber' },
-  { id: '5', text: 'creative-dev', rotation: 2.1, left: '75%', top: '42%', tone: 'lavender' },
-  { id: '6', text: 'ui-ux-craft', rotation: -2.2, left: '8%', top: '42%', tone: 'rose' },
+  { id: '2', text: 'gcp-cloud', rotation: 1.4, left: '72%', top: '10%', tone: 'surface' },
+  { id: '3', text: 'crisismesh-ai', rotation: -1.1, left: '80%', top: '26%', tone: 'mint' },
+  { id: '4', text: 'genai-builder', rotation: -1.4, left: '6%', top: '24%', variant: 'highlight', tone: 'amber' },
+  { id: '5', text: 'python-devops', rotation: 2.1, left: '75%', top: '42%', tone: 'lavender' },
+  { id: '6', text: 'mumbai-eng', rotation: -2.2, left: '8%', top: '42%', tone: 'rose' },
 ];
 
 const WINDOW_Z_BASE = 30;
@@ -214,11 +213,22 @@ const DesktopEnvironment: React.FC = () => {
   const [isInkMode, setIsInkMode] = useState(false);
   const [toyMode, setToyMode] = useState<ToyMode>('default');
   const [showMobileStickers, setShowMobileStickers] = useState(false);
+  const [gestureHud, setGestureHud] = useState<string | null>(null);
+  const [rebootCount, setRebootCount] = useState(0);
+  const [pongSession, setPongSession] = useState<{
+    geometry: PongUiGeometry;
+    initialMode: PongMode;
+  } | null>(null);
+  const [pongHideStickers, setPongHideStickers] = useState(false);
 
   const { themeId, setTheme, wallpaper } = useTheme();
-  const { soundEnabled, setSoundEnabled, playOpen, playClick, playStick, playSnap, playMinimize } =
+  const { soundEnabled, setSoundEnabled, playOpen, playClick, playStick, playSnap, playMinimize, playChime } =
     useSound();
   const constraintsRef = useRef<HTMLDivElement>(null);
+  const desktopSnapshotRef = useRef<WindowId[] | null>(null);
+  const pongTuckedWindowsRef = useRef<WindowId[] | null>(null);
+  const gestureHudTimerRef = useRef<number | null>(null);
+  const rebootTimerRef = useRef<number | null>(null);
 
   // Determine top-most visible focused window
   const focusedWindowId = React.useMemo<WindowId | null>(() => {
@@ -233,6 +243,15 @@ const DesktopEnvironment: React.FC = () => {
     });
     return topId;
   }, [windows]);
+
+  const hasMaximizedWindow = React.useMemo(
+    () =>
+      (Object.keys(windows) as WindowId[]).some((id) => {
+        const w = windows[id];
+        return w.isOpen && !w.isMinimized && w.isMaximized;
+      }),
+    [windows]
+  );
 
   // Keep URL hash synced with focused app or active project
   useEffect(() => {
@@ -256,10 +275,297 @@ const DesktopEnvironment: React.FC = () => {
     }
   }, [stickers]);
 
+  const showGestureNotice = useCallback((message: string) => {
+    setGestureHud(message);
+    if (gestureHudTimerRef.current !== null) {
+      window.clearTimeout(gestureHudTimerRef.current);
+    }
+    gestureHudTimerRef.current = window.setTimeout(() => {
+      setGestureHud(null);
+      gestureHudTimerRef.current = null;
+    }, 1500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (gestureHudTimerRef.current !== null) {
+        window.clearTimeout(gestureHudTimerRef.current);
+      }
+      if (rebootTimerRef.current !== null) {
+        window.clearTimeout(rebootTimerRef.current);
+      }
+    };
+  }, []);
+
+  const rebootSystem = useCallback(() => {
+    playChime();
+    setIsSpotlightOpen(false);
+    setIsCreatorOpen(false);
+    setIsInkMode(false);
+    setShowMobileStickers(false);
+    setSnapPreview(null);
+    setPongSession(null);
+    setPongHideStickers(false);
+    desktopSnapshotRef.current = null;
+    pongTuckedWindowsRef.current = null;
+    setRebootCount((c) => c + 1);
+
+    if (rebootTimerRef.current !== null) {
+      window.clearTimeout(rebootTimerRef.current);
+    }
+    // Reset transient windows and spawned error stickers cleanly behind the reboot splash
+    rebootTimerRef.current = window.setTimeout(() => {
+      setWindows(INITIAL_WINDOWS);
+      setSelectedProjectId(null);
+      setStickers((prev) => prev.filter((s) => s.variant !== 'error'));
+      rebootTimerRef.current = null;
+    }, 260);
+  }, [playChime]);
+
+  const startPong = useCallback(
+    (initialMode: PongMode = 'ai') => {
+      if (pongSession) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const isMobile = vw < 768;
+
+      const toBox = (r: DOMRect) => ({
+        left: r.left,
+        top: r.top,
+        width: r.width,
+        height: r.height,
+      });
+
+      const menuEl = document.querySelector<HTMLElement>('[data-pong-menu-btn]');
+      const dockEl = document.querySelector<HTMLElement>('[data-pong-dock]');
+      const searchEl = document.querySelector<HTMLElement>('[data-pong-search-pill]');
+      const noteEl = document.querySelector<HTMLElement>('[data-pong-note-pill]');
+      const mobileTopEl = document.querySelector<HTMLElement>('[data-pong-mobile-top]');
+
+      const dockRect = dockEl
+        ? toBox(dockEl.getBoundingClientRect())
+        : { left: 24, top: vh - 74, width: Math.min(vw - 48, 1024), height: 62 };
+
+      const menuBallRect = menuEl
+        ? toBox(menuEl.getBoundingClientRect())
+        : { left: dockRect.left + 16, top: dockRect.top + 11, width: 40, height: 40 };
+
+      const searchPillRect =
+        !isMobile && searchEl && searchEl.getBoundingClientRect().width > 0
+          ? toBox(searchEl.getBoundingClientRect())
+          : null;
+      const notePillRect =
+        !isMobile && noteEl && noteEl.getBoundingClientRect().width > 0
+          ? toBox(noteEl.getBoundingClientRect())
+          : null;
+      const mobileTopRect =
+        isMobile && mobileTopEl && mobileTopEl.getBoundingClientRect().width > 0
+          ? toBox(mobileTopEl.getBoundingClientRect())
+          : null;
+
+      // Capture exact positions of visible desktop stickers so Brick-Break can morph them cleanly
+      const stickerEls = Array.from(document.querySelectorAll<HTMLElement>('[data-pong-sticker]'));
+      const stickerSnapshots: StickerSnapshot[] = stickerEls
+        .map((el) => {
+          const rect = el.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return null;
+          const id = el.getAttribute('data-pong-sticker') || '';
+          const match = stickers.find((st) => st.id === id);
+          return {
+            id: id || `st-${Math.random()}`,
+            text: match?.text || el.getAttribute('data-pong-sticker-text') || 'note',
+            tone: (match?.tone || el.getAttribute('data-pong-sticker-tone') || 'surface') as StickerTone,
+            rotation: match?.rotation ?? 0,
+            rect: toBox(rect),
+          };
+        })
+        .filter((s): s is StickerSnapshot => Boolean(s));
+
+      // Tuck full-screen/maximized windows (or mobile sheets) temporarily so court is playable,
+      // while leaving normal floating desktop windows open as live bumpers!
+      setWindows((prev) => {
+        const tucked: WindowId[] = [];
+        const next = { ...prev };
+        (Object.keys(next) as WindowId[]).forEach((id) => {
+          const w = next[id];
+          if (w.isOpen && !w.isMinimized && (isMobile || w.isMaximized)) {
+            tucked.push(id);
+            next[id] = { ...w, isMinimized: true };
+          }
+        });
+        pongTuckedWindowsRef.current = tucked.length > 0 ? tucked : null;
+        return tucked.length > 0 ? next : prev;
+      });
+
+      setIsSpotlightOpen(false);
+      setIsCreatorOpen(false);
+      setIsInkMode(false);
+      setShowMobileStickers(false);
+      setSnapPreview(null);
+
+      setPongSession({
+        geometry: {
+          menuBallRect,
+          dockRect,
+          isMobile,
+          searchPillRect,
+          notePillRect,
+          mobileTopRect,
+          stickerSnapshots,
+        },
+        initialMode,
+      });
+    },
+    [pongSession, stickers]
+  );
+
+  const handleFinishPong = useCallback(
+    (summary?: { won: boolean; mode: PongMode; scoreText: string }) => {
+      setPongSession(null);
+      setPongHideStickers(false);
+
+      const tucked = pongTuckedWindowsRef.current;
+      pongTuckedWindowsRef.current = null;
+      if (tucked && tucked.length > 0) {
+        setWindows((prev) => {
+          const next = { ...prev };
+          tucked.forEach((id) => {
+            if (next[id]?.isOpen) {
+              next[id] = { ...next[id], isMinimized: false };
+            }
+          });
+          return next;
+        });
+      }
+
+      if (summary?.won) {
+        showGestureNotice(`Pong Victory (${summary.scoreText}) · Desktop restored`);
+      }
+    },
+    [showGestureNotice]
+  );
+
+  const toggleDesktopVisibility = useCallback(() => {
+    const isNarrow = typeof window !== 'undefined' && window.innerWidth < 768;
+    setWindows((prev) => {
+      const visibleIds = (Object.keys(prev) as WindowId[]).filter(
+        (id) => prev[id].isOpen && !prev[id].isMinimized
+      );
+
+      if (visibleIds.length > 0) {
+        // Hide all visible windows and snapshot them so a second 3-finger swipe restores them
+        desktopSnapshotRef.current = visibleIds;
+        playMinimize();
+        if (isNarrow) setShowMobileStickers(true);
+        showGestureNotice('Desktop shown · 3-finger swipe to restore');
+        const next = { ...prev };
+        visibleIds.forEach((id) => {
+          next[id] = { ...next[id], isMinimized: true };
+        });
+        return next;
+      }
+
+      // Restore previously hidden windows (or any minimized open window, or Welcome)
+      const snapIds = (desktopSnapshotRef.current || []).filter((id) => prev[id]?.isOpen);
+      desktopSnapshotRef.current = null;
+      const minimizedOpenIds = (Object.keys(prev) as WindowId[]).filter(
+        (id) => prev[id].isOpen && prev[id].isMinimized
+      );
+      const restoreIds =
+        snapIds.length > 0
+          ? snapIds
+          : minimizedOpenIds.length > 0
+            ? isNarrow
+              ? [minimizedOpenIds[minimizedOpenIds.length - 1]]
+              : minimizedOpenIds
+            : (['welcome'] as WindowId[]);
+
+      playOpen();
+      if (isNarrow) setShowMobileStickers(false);
+      showGestureNotice('Windows restored');
+
+      const next = { ...prev };
+      restoreIds.forEach((id) => {
+        next[id] = { ...next[id], isOpen: true, isMinimized: false };
+      });
+      return normalizeWindowZ(next, restoreIds);
+    });
+  }, [playMinimize, playOpen, showGestureNotice]);
+
+  // Global three-finger swipe gesture to toggle desktop visibility
+  useEffect(() => {
+    const el = constraintsRef.current;
+    if (!el) return;
+
+    let startX = 0;
+    let startY = 0;
+    let active = false;
+    let triggered = false;
+
+    const getCentroid = (touches: TouchList) => ({
+      x: (touches[0].clientX + touches[1].clientX + touches[2].clientX) / 3,
+      y: (touches[0].clientY + touches[1].clientY + touches[2].clientY) / 3,
+    });
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (isInkMode || isSpotlightOpen || isCreatorOpen || pongSession) return;
+      if (e.touches.length === 3 && !triggered) {
+        const c = getCentroid(e.touches);
+        startX = c.x;
+        startY = c.y;
+        active = true;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (isInkMode || isSpotlightOpen || isCreatorOpen || pongSession) return;
+      if (e.touches.length === 3) {
+        e.preventDefault();
+        const c = getCentroid(e.touches);
+        if (!active && !triggered) {
+          startX = c.x;
+          startY = c.y;
+          active = true;
+          return;
+        }
+        if (active && !triggered) {
+          const dist = Math.hypot(c.x - startX, c.y - startY);
+          if (dist >= 60) {
+            triggered = true;
+            active = false;
+            toggleDesktopVisibility();
+          }
+        }
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 3) {
+        active = false;
+      }
+      if (e.touches.length === 0) {
+        triggered = false;
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [isInkMode, isSpotlightOpen, isCreatorOpen, pongSession, toggleDesktopVisibility]);
+
   // Global Cmd/Ctrl + K Spotlight shortcut & Escape dismiss
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if (pongSession) return;
         e.preventDefault();
         playClick();
         setIsSpotlightOpen((prev) => !prev);
@@ -270,7 +576,7 @@ const DesktopEnvironment: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [playClick, isCreatorOpen, isInkMode]);
+  }, [playClick, isCreatorOpen, isInkMode, pongSession]);
 
   const resetDesktop = useCallback(() => {
     playClick();
@@ -347,6 +653,7 @@ const DesktopEnvironment: React.FC = () => {
 
   const openWindowExplicit = useCallback(
     (id: WindowId) => {
+      desktopSnapshotRef.current = null;
       playOpen();
       const isNarrow = typeof window !== 'undefined' && window.innerWidth < 768;
       if (isNarrow) setShowMobileStickers(false);
@@ -374,6 +681,7 @@ const DesktopEnvironment: React.FC = () => {
       if (win.isOpen && !win.isMinimized && win.zIndex === maxZ) {
         return { ...prev, [id]: { ...win, isMinimized: true } };
       }
+      desktopSnapshotRef.current = null;
       playOpen();
       if (isNarrow) setShowMobileStickers(false);
       const next = { ...prev };
@@ -611,6 +919,27 @@ const DesktopEnvironment: React.FC = () => {
       return 'Toggled Desktop Ink drawing mode.';
     }
 
+    if (cmd === 'reboot' || cmd === 'restart') {
+      window.setTimeout(() => {
+        rebootSystem();
+      }, 320);
+      return 'Rebooting KhanOS... restarting desktop session.';
+    }
+
+    if (cmd === 'pong') {
+      const sub = (args[0] || '').toLowerCase();
+      const targetMode: PongMode =
+        sub === '2p' || sub === 'split'
+          ? '2p'
+          : sub === 'bricks' || sub === 'break' || sub === 'breakout'
+            ? 'bricks'
+            : 'ai';
+      window.setTimeout(() => {
+        startPong(targetMode);
+      }, 160);
+      return `Morphing KhanOS into Pong (${targetMode === 'ai' ? 'vs AI' : targetMode === '2p' ? '2P Split' : 'Sticker Brick-Break'})...`;
+    }
+
     if (cmd === 'sound') {
       const flag = (args[0] || '').toLowerCase();
       if (flag === 'on') {
@@ -657,7 +986,7 @@ const DesktopEnvironment: React.FC = () => {
       id: 'resume',
       icon: <FileText size={19} />,
       label: 'Resume / Dossier',
-      previewSubtitle: 'Principal Frontend & Systems',
+      previewSubtitle: 'Cloud, GenAI & BE Comp Eng',
       windowId: 'resume',
       isActive: windows.resume.isOpen,
       isMinimized: windows.resume.isMinimized,
@@ -713,40 +1042,79 @@ const DesktopEnvironment: React.FC = () => {
       id: 'linkedin',
       icon: <IconLinkedIn />,
       label: 'LinkedIn',
-      href: 'https://linkedin.com',
+      href: 'https://www.linkedin.com/in/khan-hassan-eng/',
     },
     {
       id: 'github',
       icon: <IconGithub size={19} />,
       label: 'GitHub',
-      href: 'https://github.com',
+      href: 'https://github.com/KHAN5461',
     },
   ];
 
-  const contextMenuItems = [
-    { label: 'Spotlight Search', shortcut: '⌘K', action: () => setIsSpotlightOpen(true), icon: <Search size={14} /> },
+  const contextQuickActions: ContextMenuQuickAction[] = [
+    {
+      label: 'Refresh',
+      title: 'Refresh desktop stickers',
+      icon: <IconRefresh size={14} />,
+      action: resetDesktop,
+    },
+    {
+      label: isInkMode ? 'Exit Draw' : 'Draw',
+      title: isInkMode ? 'Exit Draw on Desktop' : 'Draw on Desktop',
+      icon: <PenTool size={14} />,
+      action: () => setIsInkMode((v) => !v),
+      active: isInkMode,
+    },
+  ];
+
+  const contextMenuItems: ContextMenuItem[] = [
     { label: 'New Note / Stamp', action: () => setIsCreatorOpen(true), icon: <IconPlus size={14} /> },
-    { label: isInkMode ? 'Exit Ink Draw' : 'Draw on Desktop', action: () => setIsInkMode((v) => !v), icon: <PenTool size={14} /> },
-    { label: '', action: () => {}, separator: true },
+    { label: 'Spotlight Search', shortcut: '⌘K', action: () => setIsSpotlightOpen(true), icon: <Search size={14} /> },
     { label: 'Showcase Split', action: () => applyWorkspacePreset('showcase-split'), icon: <Columns2 size={14} /> },
-    { label: 'Recruiter Mode', action: () => applyWorkspacePreset('recruiter-mode'), icon: <Briefcase size={14} /> },
-    { label: 'Clean Desk', action: () => applyWorkspacePreset('clean-desk'), icon: <Minimize2 size={14} /> },
-    { label: '', action: () => {}, separator: true },
-    { label: 'Next Theme', action: handleNextTheme, icon: <IconPalette size={14} /> },
-    { label: 'Refresh Stickers', action: resetDesktop, icon: <IconRefresh size={14} /> },
+    { label: '', separator: true },
+    { label: 'Cycle Theme', action: handleNextTheme, icon: <IconPalette size={14} /> },
     { label: 'System Settings', action: () => openWindowExplicit('settings'), icon: <IconMonitor size={14} /> },
   ];
 
   return (
-    <ContextMenu items={contextMenuItems}>
-      <BootOverlay onComplete={() => {}} />
+    <ContextMenu
+      quickActions={contextQuickActions}
+      items={contextMenuItems}
+      disabled={Boolean(pongSession || isSpotlightOpen || isCreatorOpen || isInkMode)}
+    >
+      <BootOverlay bootNonce={rebootCount} isReboot={rebootCount > 0} onComplete={() => {}} />
       <div
         ref={constraintsRef}
         className="relative h-[100dvh] w-screen overflow-hidden overscroll-none touch-none cursor-auto"
       >
+        {/* Gesture Feedback HUD Pill */}
+        <AnimatePresence>
+          {gestureHud && (
+            <motion.div
+              initial={{ opacity: 0, y: -12, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 440, damping: 28 }}
+              className="fixed top-[64px] md:top-5 left-1/2 -translate-x-1/2 z-[95] pointer-events-none px-4 py-2 rounded-full bg-surface/95 backdrop-blur-md border border-border shadow-hard text-xs font-medium text-text-main whitespace-nowrap"
+            >
+              {gestureHud}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Mobile Top Bar */}
-        <div className="fixed top-[8px] left-[10px] right-[10px] z-[60] h-[48px] md:hidden pointer-events-none flex items-center gap-2">
-          <div className="flex-1 h-full bg-surface/95 backdrop-blur-md border border-border rounded-full flex items-center justify-between pl-4 pr-1 pointer-events-auto shadow-sm">
+        <div
+          className={`fixed top-[8px] left-[10px] right-[10px] z-[60] h-[48px] md:hidden pointer-events-none flex items-center gap-2 ${
+            pongSession ? 'opacity-0' : ''
+          }`}
+        >
+          <div
+            data-pong-mobile-top="true"
+            className={`flex-1 h-full bg-surface/95 backdrop-blur-md border border-border rounded-full flex items-center justify-between pl-4 pr-1 shadow-sm ${
+              pongSession ? 'pointer-events-none' : 'pointer-events-auto'
+            }`}
+          >
             <span className="font-sans font-semibold text-sm text-text-main select-none tracking-tight">
               KhanOS
             </span>
@@ -849,7 +1217,11 @@ const DesktopEnvironment: React.FC = () => {
         </AnimatePresence>
 
         {/* Desktop Freeform Stickers Layer */}
-        <div className="hidden md:block absolute inset-0 z-10">
+        <div
+          className={`hidden md:block absolute inset-0 z-10 ${
+            pongHideStickers ? 'opacity-0 pointer-events-none' : ''
+          }`}
+        >
           <AnimatePresence>
             {stickers.map((sticker, idx) => (
               <Sticker
@@ -931,9 +1303,18 @@ const DesktopEnvironment: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* Desktop Top-Right Quick Actions */}
-        <div className="hidden md:flex fixed top-4 right-5 z-[60] items-center gap-2">
+        {/* Desktop Top-Right Quick Actions (auto-hides while a window is maximized or Pong is active) */}
+        <div
+          className={`hidden md:flex fixed top-4 right-5 z-[60] items-center gap-2 ${
+            pongSession
+              ? 'opacity-0 pointer-events-none'
+              : `transition-all duration-200 ${
+                  hasMaximizedWindow ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'
+                }`
+          }`}
+        >
           <motion.button
+            data-pong-search-pill="true"
             whileHover={{ y: -1, scale: 1.03 }}
             whileTap={{ scale: 0.96 }}
             onClick={() => {
@@ -946,6 +1327,7 @@ const DesktopEnvironment: React.FC = () => {
             <span>⌘K</span>
           </motion.button>
           <motion.button
+            data-pong-note-pill="true"
             whileHover={{ y: -1, scale: 1.03 }}
             whileTap={{ scale: 0.96 }}
             onClick={() => {
@@ -1040,7 +1422,7 @@ const DesktopEnvironment: React.FC = () => {
           defaultPosition={windows.resume.position}
           size={windows.resume.size}
           constraintsRef={constraintsRef}
-          title="Resume / Dossier — Khan"
+          title="Resume / Dossier — Khan Hassan"
           contentClassName="p-0 bg-surface"
         >
           <ResumeWindow />
@@ -1175,10 +1557,22 @@ const DesktopEnvironment: React.FC = () => {
           onOpenNoteCreator={() => setIsCreatorOpen(true)}
           onSetTheme={(t) => setTheme(t)}
           onResetDesktop={resetDesktop}
+          onReboot={rebootSystem}
+          onStartPong={startPong}
         />
 
         {/* Cursor Trail Layer */}
         <DesktopToyLayer mode={toyMode} />
+
+        {/* Morphing Desktop Pong / Window Breakout Overlay */}
+        {pongSession && (
+          <DesktopPongOverlay
+            geometry={pongSession.geometry}
+            initialMode={pongSession.initialMode}
+            onHideDesktopStickersChange={setPongHideStickers}
+            onFinishExit={handleFinishPong}
+          />
+        )}
 
         {/* FydeOS Floating Shelf */}
         <Dock
@@ -1189,6 +1583,9 @@ const DesktopEnvironment: React.FC = () => {
           onCycleToyMode={cycleToyMode}
           onOpenSpotlight={() => setIsSpotlightOpen(true)}
           onOpenResume={() => openWindowExplicit('resume')}
+          onOpenSettings={() => openWindowExplicit('settings')}
+          onStartPong={() => startPong('ai')}
+          isPongActive={Boolean(pongSession)}
         />
       </div>
     </ContextMenu>

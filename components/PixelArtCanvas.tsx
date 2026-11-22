@@ -340,7 +340,7 @@ const PixelArtCanvas: React.FC<PixelArtCanvasProps> = ({ onPinToDesktop }) => {
       </div>
 
       {/* Canvas Grid Area */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-3 sm:p-4 bg-bg-app/40 min-h-0">
+      <div className="flex-1 overflow-auto flex items-center justify-center p-3 sm:p-4 @4xl:p-6 bg-bg-app/40 min-h-0">
         <div
           data-no-swipe="true"
           onPointerMove={(e) => {
@@ -352,7 +352,7 @@ const PixelArtCanvas: React.FC<PixelArtCanvasProps> = ({ onPinToDesktop }) => {
               if (!Number.isNaN(idx)) paintAt(idx, false);
             }
           }}
-          className="grid w-full max-w-[310px] sm:max-w-[384px] aspect-square touch-none bg-white dark:bg-[#19191c] border border-border shadow-medium rounded-lg overflow-hidden"
+          className="grid w-full max-w-[310px] sm:max-w-[384px] @3xl:max-w-[460px] @5xl:max-w-[540px] max-h-full aspect-square touch-none bg-white dark:bg-[#19191c] border border-border shadow-medium rounded-lg overflow-hidden"
           style={{
             gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
             backgroundImage:

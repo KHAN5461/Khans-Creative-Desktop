@@ -48,9 +48,9 @@ const FintechPreview: React.FC = () => {
     <div className="rounded-xl border border-border bg-bg-app p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <span className="text-xs text-text-muted">Treasury Liquidity Index</span>
+          <span className="text-xs text-text-muted">CrisisMesh · Active Relay Throughput</span>
           <div className="text-xl font-bold tabular-nums text-text-main">
-            ${(activeVal * 1420).toLocaleString()}
+            {(activeVal * 18).toLocaleString()} <span className="text-xs font-mono font-normal text-text-muted">msg/min</span>
           </div>
         </div>
         <div className="flex items-center gap-1 p-1 rounded-lg bg-surface border border-border text-xs">
@@ -112,9 +112,9 @@ const FintechPreview: React.FC = () => {
 };
 
 const EcommPreview: React.FC = () => {
-  const [finish, setFinish] = useState<'Ochre' | 'Slate' | 'Sage'>('Ochre');
+  const [region, setRegion] = useState<'Konkan' | 'Sahyadri' | 'Mumbai'>('Konkan');
   const { playClick } = useSound();
-  const colors = { Ochre: '#D5A700', Slate: '#334155', Sage: '#4F7759' };
+  const colors = { Konkan: '#D5A700', Sahyadri: '#4F7759', Mumbai: '#334155' };
 
   return (
     <div className="rounded-xl border border-border bg-bg-app p-4 flex flex-col sm:flex-row items-center gap-4">
@@ -122,30 +122,30 @@ const EcommPreview: React.FC = () => {
         whileHover={{ rotateY: 12, rotateX: -6, scale: 1.03 }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         className="w-28 h-28 rounded-xl border border-black/10 shadow-medium shrink-0 flex items-center justify-center text-white font-serif italic text-lg"
-        style={{ backgroundColor: colors[finish] }}
+        style={{ backgroundColor: colors[region] }}
       >
-        Atelier
+        {region}
       </motion.div>
       <div className="flex-1 space-y-2 text-center sm:text-left">
-        <div className="text-sm font-semibold text-text-main">Sculptural Edition · {finish}</div>
+        <div className="text-sm font-semibold text-text-main">Localized Guide · {region}</div>
         <p className="text-xs text-text-muted">
-          Hover the swatch block for live perspective optics and switch material finish.
+          Switch regional datasets to preview localized cultural metadata and contextual palettes.
         </p>
         <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
-          {(['Ochre', 'Slate', 'Sage'] as const).map((f) => (
+          {(['Konkan', 'Sahyadri', 'Mumbai'] as const).map((r) => (
             <button
-              key={f}
+              key={r}
               onClick={() => {
                 playClick();
-                setFinish(f);
+                setRegion(r);
               }}
               className={`px-3 py-1.5 sm:px-2.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md text-xs border transition-colors touch-manipulation ${
-                finish === f
+                region === r
                   ? 'border-primary bg-primary text-primary-on'
                   : 'border-border bg-surface text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10'
               }`}
             >
-              {f}
+              {r}
             </button>
           ))}
         </div>
@@ -423,72 +423,79 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     return (
       <div className="flex flex-col h-full bg-surface text-text-main">
         {/* Detail Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3.5 sm:px-4 py-3 border-b border-border bg-surface sticky top-0 z-10">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button
-              onClick={() => {
-                playClick();
-                setActiveId(null);
-              }}
-              aria-label="Back to showcase"
-              className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-neutral-90 dark:hover:bg-neutral-10 rounded-full transition-colors shrink-0 touch-manipulation"
-            >
-              <IconBack size={18} />
-            </button>
-            <div className="min-w-0">
-              <div className="font-semibold text-sm truncate">{activeProject.title}</div>
-              <div className="text-xs text-text-muted font-mono tabular-nums truncate">
-                {activeProject.role} · {activeProject.year} · {activeProject.filename}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
-            {onOpenCodeLab && (
+        <div className="border-b border-border bg-surface sticky top-0 z-10 px-3.5 sm:px-4 @4xl:px-6 py-3">
+          <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
               <button
                 onClick={() => {
                   playClick();
-                  const mappedPreset: CodePresetId =
-                    activeProject.previewKind === 'generative'
-                      ? 'wave-canvas'
-                      : activeProject.previewKind === 'tokens'
-                        ? 'profile'
-                        : 'spring-card';
-                  onOpenCodeLab(mappedPreset);
+                  setActiveId(null);
                 }}
-                className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap shrink-0 touch-manipulation"
+                aria-label="Back to showcase"
+                className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-neutral-90 dark:hover:bg-neutral-10 rounded-full transition-colors shrink-0 touch-manipulation"
               >
-                <Code2 size={13} />
-                <span>Sandbox</span>
+                <IconBack size={18} />
               </button>
-            )}
-            {activeProject.liveUrl && (
+              <div className="min-w-0">
+                <div className="font-semibold text-sm truncate">{activeProject.title}</div>
+                <div className="text-xs text-text-muted font-mono tabular-nums truncate">
+                  {activeProject.role} · {activeProject.year} · {activeProject.filename}
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`grid ${
+                activeProject.liveUrl ? 'grid-cols-3' : 'grid-cols-2'
+              } sm:flex sm:flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto`}
+            >
+              {onOpenCodeLab && (
+                <button
+                  onClick={() => {
+                    playClick();
+                    const mappedPreset: CodePresetId =
+                      activeProject.previewKind === 'generative'
+                        ? 'wave-canvas'
+                        : activeProject.previewKind === 'tokens'
+                          ? 'profile'
+                          : 'spring-card';
+                    onOpenCodeLab(mappedPreset);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap shrink-0 touch-manipulation"
+                >
+                  <Code2 size={13} />
+                  <span>Sandbox</span>
+                </button>
+              )}
+              {activeProject.liveUrl && (
+                <a
+                  href={activeProject.liveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap shrink-0 touch-manipulation"
+                >
+                  <span>Live Demo</span>
+                  <ExternalLink size={11} />
+                </a>
+              )}
               <a
-                href={activeProject.liveUrl}
+                href={activeProject.githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap shrink-0 touch-manipulation"
+                className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg bg-primary text-primary-on text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 touch-manipulation"
               >
-                <span>Live Demo</span>
+                <IconGithub size={13} />
+                <span>Source</span>
                 <ExternalLink size={11} />
               </a>
-            )}
-            <a
-              href={activeProject.githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg bg-primary text-primary-on text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 touch-manipulation"
-            >
-              <IconGithub size={13} />
-              <span>Source</span>
-              <ExternalLink size={11} />
-            </a>
+            </div>
           </div>
         </div>
 
         {/* Detail Body */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 md:p-6 space-y-5 sm:space-y-6">
-          <div>
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 md:p-6 @4xl:p-8">
+          <div className="max-w-6xl mx-auto w-full grid grid-cols-1 @4xl:grid-cols-12 gap-6 @4xl:gap-8 items-start">
+            <div className="@4xl:col-span-7 @4xl:sticky @4xl:top-0">
             <div className="flex items-center justify-between gap-2 mb-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                 Interactive Demo Sandbox
@@ -598,31 +605,34 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             </AnimatePresence>
           </div>
 
-          <div className="space-y-1.5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Architecture &amp; Summary
-            </h3>
-            <p className="text-sm text-text-main leading-relaxed">{activeProject.summary}</p>
-          </div>
+            <div className="@4xl:col-span-5 space-y-5 sm:space-y-6">
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  Architecture &amp; Summary
+                </h3>
+                <p className="text-sm text-text-main leading-relaxed">{activeProject.summary}</p>
+              </div>
 
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Engineering Highlights
-            </h3>
-            <ul className="space-y-1.5 text-sm text-text-main">
-              {activeProject.highlights.map((hl, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="text-primary font-mono text-xs mt-1">0{i + 1}.</span>
-                  <span>{hl}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  Engineering Highlights
+                </h3>
+                <ul className="space-y-2 text-sm text-text-main">
+                  {activeProject.highlights.map((hl, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-primary font-mono text-xs mt-1">0{i + 1}.</span>
+                      <span>{hl}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-          <div className="pt-3 border-t border-border">
-            <span className="text-xs font-mono text-text-muted">
-              {activeProject.stack.join(' · ')}
-            </span>
+              <div className="pt-3 border-t border-border">
+                <span className="text-xs font-mono text-text-muted">
+                  {activeProject.stack.join(' · ')}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -634,29 +644,31 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       {/* Category Filter Bar */}
       <div
         data-no-swipe="true"
-        className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 border-b border-border bg-bg-app/70 overflow-x-auto scrollbar-hide shrink-0"
+        className="px-3.5 sm:px-4 @4xl:px-6 py-2.5 border-b border-border bg-bg-app/70 shrink-0"
       >
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => {
-              playClick();
-              setCategory(cat);
-            }}
-            className={`px-3.5 py-2 sm:px-3 sm:py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 touch-manipulation ${
-              category === cat
-                ? 'bg-surface text-text-main border border-border shadow-sm'
-                : 'text-text-muted hover:text-text-main'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+        <div className="max-w-6xl mx-auto w-full flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => {
+                playClick();
+                setCategory(cat);
+              }}
+              className={`px-3.5 py-2 sm:px-3 sm:py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 touch-manipulation ${
+                category === cat
+                  ? 'bg-surface text-text-main border border-border shadow-sm'
+                  : 'text-text-muted hover:text-text-main'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Product Grid */}
-      <div className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-4 md:p-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-4 md:p-5 @4xl:p-7">
+        <div className="max-w-6xl mx-auto w-full grid grid-cols-1 sm:grid-cols-2 @4xl:grid-cols-3 gap-3 sm:gap-4">
           {visibleProjects.map((project) => (
             <motion.button
               key={project.id}
@@ -666,7 +678,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 playClick();
                 setActiveId(project.id);
               }}
-              className="group p-4 rounded-xl border border-border bg-bg-app/60 hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60 text-left transition-colors flex flex-col justify-between gap-3 touch-manipulation"
+              className="group p-4 @4xl:p-5 rounded-xl border border-border bg-bg-app/60 hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60 text-left transition-colors flex flex-col justify-between gap-3 touch-manipulation"
             >
               <div>
                 <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-text-muted">
@@ -676,7 +688,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 <h3 className="mt-1.5 text-base font-semibold text-text-main group-hover:text-primary transition-colors">
                   {project.title}
                 </h3>
-                <p className="mt-1 text-xs text-text-muted line-clamp-2 leading-relaxed">
+                <p className="mt-1 text-xs text-text-muted line-clamp-2 @4xl:line-clamp-3 leading-relaxed">
                   {project.summary}
                 </p>
               </div>
@@ -691,12 +703,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       </div>
 
       {/* Footer Strip */}
-      <div className="px-4 py-2 border-t border-border bg-bg-app/70 text-[11px] text-text-muted font-mono flex items-center justify-between gap-2 tabular-nums">
-        <span>{visibleProjects.length} releases</span>
-        <span className="inline-flex items-center gap-1 truncate">
-          <Sparkles size={11} className="text-primary shrink-0" />
-          <span className="truncate">Interactive demos inside</span>
-        </span>
+      <div className="px-4 @4xl:px-6 py-2 border-t border-border bg-bg-app/70 text-[11px] text-text-muted font-mono tabular-nums">
+        <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-2">
+          <span>{visibleProjects.length} releases</span>
+          <span className="inline-flex items-center gap-1 truncate">
+            <Sparkles size={11} className="text-primary shrink-0" />
+            <span className="truncate">Interactive demos inside</span>
+          </span>
+        </div>
       </div>
     </div>
   );

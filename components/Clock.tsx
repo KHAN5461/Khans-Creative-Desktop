@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, VolumeX, Mail, Copy, Check, ExternalLink, Palette, Sun, Moon } from 'lucide-react';
+import { Volume2, VolumeX, Mail, Copy, Check, ExternalLink, Settings, Sun, Moon, ChevronRight } from 'lucide-react';
 import { useSound } from '../contexts/SoundContext';
 import { useTheme } from '../theme/ThemeContext';
-import { ThemeId, ToyMode } from '../types';
+import { ToyMode } from '../types';
 
 interface ClockProps {
   isInkMode: boolean;
@@ -11,15 +11,8 @@ interface ClockProps {
   toyMode: ToyMode;
   onCycleToyMode: () => void;
   onOpenResume: () => void;
+  onOpenSettings: () => void;
 }
-
-const QUICK_THEMES: { id: ThemeId; swatch: string; label: string }[] = [
-  { id: 'warm', swatch: '#D5A700', label: 'Warm' },
-  { id: 'dark', swatch: '#313033', label: 'Dark' },
-  { id: 'dev', swatch: '#00FF94', label: 'Cyber' },
-  { id: 'ocean', swatch: '#0061A4', label: 'Ocean' },
-  { id: 'lavender', swatch: '#6750A4', label: 'Lavender' },
-];
 
 const Clock: React.FC<ClockProps> = ({
   isInkMode,
@@ -27,13 +20,14 @@ const Clock: React.FC<ClockProps> = ({
   toyMode,
   onCycleToyMode,
   onOpenResume,
+  onOpenSettings,
 }) => {
   const [time, setTime] = useState(new Date());
   const [activePopover, setActivePopover] = useState<'none' | 'tray' | 'hire'>('none');
   const [copied, setCopied] = useState(false);
   const trayRef = useRef<HTMLDivElement>(null);
   const { soundEnabled, toggleSound, playClick, playSnap } = useSound();
-  const { theme, themeId, setTheme, toggleDarkMode, isDynamicActive } = useTheme();
+  const { theme, toggleDarkMode } = useTheme();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -173,34 +167,25 @@ const Clock: React.FC<ClockProps> = ({
               </button>
             </div>
 
-            <div>
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-text-muted mb-2">
-                <Palette size={12} /> Theme Quick-Switch
+            <button
+              onClick={() => {
+                playClick();
+                setActivePopover('none');
+                onOpenSettings();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 md:py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium text-text-main transition-colors touch-manipulation"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Settings size={14} className="text-primary" />
+                <span>Settings</span>
               </span>
-              <div className="flex items-center justify-between gap-1.5">
-                {QUICK_THEMES.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      playClick();
-                      setTheme(t.id);
-                    }}
-                    title={t.label}
-                    className={`w-7 h-7 rounded-full border transition-transform ${
-                      !isDynamicActive && themeId === t.id
-                        ? 'scale-115 ring-2 ring-primary ring-offset-2 ring-offset-surface border-text-main'
-                        : 'border-black/20 hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: t.swatch }}
-                  />
-                ))}
-              </div>
-            </div>
+              <ChevronRight size={14} className="text-text-muted" />
+            </button>
 
             {/* Mobile Contact / Hire Quick Actions */}
             <div className="md:hidden pt-3 border-t border-border space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-text-main">
-                <span>Work with Khan</span>
+                <span>Connect with Khan</span>
                 <button
                   onClick={() => {
                     playClick();
@@ -214,11 +199,29 @@ const Clock: React.FC<ClockProps> = ({
               </div>
               <button
                 onClick={handleCopyEmail}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-[11px] font-mono transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-[11px] font-mono transition-colors touch-manipulation"
               >
                 <span className="truncate">khanhassan5451@gmail.com</span>
                 {copied ? <Check size={13} className="text-primary shrink-0" /> : <Copy size={13} className="shrink-0" />}
               </button>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <a
+                  href="https://github.com/KHAN5461"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 font-medium touch-manipulation"
+                >
+                  GitHub <ExternalLink size={11} />
+                </a>
+                <a
+                  href="https://www.linkedin.com/in/khan-hassan-eng/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 font-medium touch-manipulation"
+                >
+                  LinkedIn <ExternalLink size={11} />
+                </a>
+              </div>
             </div>
           </motion.div>
         )}
@@ -234,11 +237,11 @@ const Clock: React.FC<ClockProps> = ({
             <div className="space-y-1.5">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/12 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Shipping · Open to Principal / Staff
+                Open to Cloud · GenAI · SWE Roles
               </div>
-              <div className="text-sm font-bold">Work with Khan</div>
+              <div className="text-sm font-bold">Connect with Khan Hassan</div>
               <div className="text-xs text-text-muted">
-                Principal Frontend &amp; Design Systems · Tactile Web Products
+                Computer Engineering · GCP, Backend &amp; Generative AI · Mumbai
               </div>
             </div>
 
@@ -262,7 +265,7 @@ const Clock: React.FC<ClockProps> = ({
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <a
-                href="https://github.com"
+                href="https://github.com/KHAN5461"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 font-medium"
@@ -270,7 +273,7 @@ const Clock: React.FC<ClockProps> = ({
                 GitHub <ExternalLink size={11} />
               </a>
               <a
-                href="https://linkedin.com"
+                href="https://www.linkedin.com/in/khan-hassan-eng/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 font-medium"
@@ -328,7 +331,7 @@ const Clock: React.FC<ClockProps> = ({
           playClick();
           setActivePopover((p) => (p === 'tray' ? 'none' : 'tray'));
         }}
-        title="System Status Tray & Quick Themes"
+        title="System Status Tray & Settings"
         className={`flex flex-shrink-0 items-center justify-center border shadow-sm box-border h-[44px] min-w-[64px] px-3.5 md:h-[40px] md:min-w-0 md:px-4 rounded-full transition-colors cursor-pointer select-none touch-manipulation ${
           activePopover === 'tray'
             ? 'border-primary bg-primary-container/30 text-text-main'

@@ -65,7 +65,14 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
     startY: number;
     locked: 'none' | 'horizontal' | 'vertical' | 'blocked';
   } | null>(null);
+  const pinchTouchRef = useRef<{
+    initialDistance: number;
+    lastScale: number;
+  } | null>(null);
+  const suppressGesturesRef = useRef(false);
   const [swipeX, setSwipeX] = useState(0);
+  const [pinchScale, setPinchScale] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
   const [viewport, setViewport] = useState(() =>
     typeof window !== 'undefined'
       ? { w: window.innerWidth, h: window.innerHeight }
@@ -120,6 +127,19 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
 
   const visible = isOpen && !isMinimized;
 
+  // Prevent native browser pinch-zoom when two fingers pinch on the window
+  useEffect(() => {
+    const el = windowRef.current;
+    if (!visible || !el) return;
+    const preventPinchZoom = (e: TouchEvent) => {
+      if (e.touches.length === 2 && !suppressGesturesRef.current) {
+        e.preventDefault();
+      }
+    };
+    el.addEventListener('touchmove', preventPinchZoom, { passive: false });
+    return () => el.removeEventListener('touchmove', preventPinchZoom);
+  }, [visible]);
+
   // Compute responsive positioning & safe-area frame geometry
   const desktopStyle: React.CSSProperties = isMobile
     ? {
@@ -134,13 +154,10 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
     : isMaximized
       ? {
           zIndex,
-          top: SAFE_TOP,
-          left: 24,
-          right: 24,
-          bottom: SAFE_BOTTOM,
-          maxWidth: MAX_WORKSTATION_WIDTH,
-          marginLeft: 'auto',
-          marginRight: 'auto',
+          top: 10,
+          left: 10,
+          right: 10,
+          bottom: 84,
           width: 'auto',
           height: 'auto',
         }
@@ -174,7 +191,40 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
   const targetX = isMobile ? swipeX : isMaximized || snapSide ? 0 : defaultPosition.x;
   const targetY = isMobile || isMaximized || snapSide ? 0 : defaultPosition.y;
 
+  const getTouchDistance = (touches: React.TouchList) => {
+    const t1 = touches[0];
+    const t2 = touches[1];
+    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  };
+
+  const PINCH_CLOSE_THRESHOLD = 0.78;
+  const isPinching = pinchScale < 0.985;
+  const isPinchReadyToClose = pinchScale <= PINCH_CLOSE_THRESHOLD;
+
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    // 3+ fingers belong to the global desktop visibility swipe gesture
+    if (e.touches.length >= 3) {
+      suppressGesturesRef.current = true;
+      swipeTouchRef.current = null;
+      pinchTouchRef.current = null;
+      setSwipeX(0);
+      setPinchScale(1);
+      return;
+    }
+
+    if (suppressGesturesRef.current) return;
+
+    // Two-finger pinch-to-close (works on phones, tablets, and touch laptops)
+    if (e.touches.length === 2) {
+      swipeTouchRef.current = null;
+      setSwipeX(0);
+      const dist = getTouchDistance(e.touches);
+      if (dist >= 36) {
+        pinchTouchRef.current = { initialDistance: dist, lastScale: 1 };
+      }
+      return;
+    }
+
     if (!isMobile || (!onSwipeLeft && !onSwipeRight) || e.touches.length !== 1) return;
     const target = e.target as HTMLElement | null;
     const isBlockedTarget = Boolean(
@@ -188,6 +238,35 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length >= 3) {
+      suppressGesturesRef.current = true;
+      swipeTouchRef.current = null;
+      pinchTouchRef.current = null;
+      setSwipeX(0);
+      setPinchScale(1);
+      return;
+    }
+
+    if (suppressGesturesRef.current) return;
+
+    // Active two-finger pinch-to-close tracking
+    if (e.touches.length === 2) {
+      swipeTouchRef.current = null;
+      setSwipeX(0);
+      const dist = getTouchDistance(e.touches);
+      if (!pinchTouchRef.current) {
+        if (dist >= 36) {
+          pinchTouchRef.current = { initialDistance: dist, lastScale: 1 };
+        }
+        return;
+      }
+      const ratio = dist / pinchTouchRef.current.initialDistance;
+      const nextScale = ratio < 1 ? Math.max(0.6, Math.min(1, ratio)) : 1;
+      pinchTouchRef.current.lastScale = nextScale;
+      setPinchScale(nextScale);
+      return;
+    }
+
     const state = swipeTouchRef.current;
     if (!isMobile || !state || state.locked === 'blocked' || state.locked === 'vertical') return;
     const touch = e.touches[0];
@@ -212,6 +291,29 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (suppressGesturesRef.current) {
+      if (e.touches.length === 0) {
+        suppressGesturesRef.current = false;
+      }
+      return;
+    }
+
+    // Complete pinch-to-close once fewer than 2 fingers remain
+    if (pinchTouchRef.current && e.touches.length < 2) {
+      const finalScale = pinchTouchRef.current.lastScale;
+      pinchTouchRef.current = null;
+      setPinchScale(1);
+      if (e.touches.length > 0) {
+        // Prevent remaining single finger from firing a stray swipe
+        suppressGesturesRef.current = true;
+      }
+      if (finalScale <= PINCH_CLOSE_THRESHOLD) {
+        playClose();
+        onClose();
+      }
+      return;
+    }
+
     const state = swipeTouchRef.current;
     swipeTouchRef.current = null;
     setSwipeX(0);
@@ -238,10 +340,16 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
       {visible && (
         <motion.div
           ref={windowRef}
+          data-pong-window={!isMobile && !isMaximized ? title : undefined}
           initial={{ scale: 0.9, opacity: 0, x: targetX, y: targetY + 24 }}
-          animate={{ scale: 1, opacity: 1, x: targetX, y: targetY }}
+          animate={{
+            scale: pinchScale,
+            opacity: isPinching ? Math.max(0.55, pinchScale) : 1,
+            x: targetX,
+            y: targetY,
+          }}
           exit={{
-            scale: isMinimized ? 0.45 : 0.94,
+            scale: isMinimized ? 0.45 : 0.72,
             y: isMinimized ? 260 : targetY + 10,
             opacity: 0,
             transition: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
@@ -251,12 +359,25 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
           onTouchEnd={handleTouchEnd}
           onTouchCancel={() => {
             swipeTouchRef.current = null;
+            pinchTouchRef.current = null;
+            suppressGesturesRef.current = false;
             setSwipeX(0);
+            setPinchScale(1);
           }}
-          className={`fixed flex flex-col rounded-2xl overflow-hidden border shadow-hard bg-surface ${
+          className={`fixed flex flex-col overflow-hidden border shadow-hard bg-surface ${
+            isMaximized ? 'rounded-[20px]' : 'rounded-2xl'
+          } ${
+            !isDragging && !isMobile
+              ? 'transition-[top,left,right,bottom,border-radius] duration-200 ease-out'
+              : ''
+          } ${
             isMobile ? 'touch-pan-y' : ''
           } ${
-            isFocused ? 'border-primary/45 ring-1 ring-primary/20' : 'border-border opacity-[0.98]'
+            isMaximized
+              ? 'border-border/90'
+              : isFocused
+                ? 'border-primary/45 ring-1 ring-primary/20'
+                : 'border-border opacity-[0.98]'
           }`}
           style={desktopStyle}
           drag={!isMobile && !isMaximized}
@@ -265,6 +386,7 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
           dragElastic={0}
           whileDrag={{ cursor: 'grabbing' }}
           onDragStart={() => {
+            setIsDragging(true);
             if (snapSide && windowRef.current) {
               snapOriginRectRef.current = windowRef.current.getBoundingClientRect();
             } else {
@@ -277,6 +399,7 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
             }
           }}
           onDragEnd={(event, info) => {
+            setIsDragging(false);
             const pointerX = 'clientX' in event ? (event as PointerEvent).clientX : -1;
             const snap = pointerX >= 0 ? detectSnap(pointerX) : null;
             onSnapPreview?.(null);
@@ -306,8 +429,35 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
             }
           }}
           onPointerDown={onFocus}
-          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          transition={
+            isPinching
+              ? { duration: 0.04, ease: 'linear' }
+              : { type: 'spring', damping: 28, stiffness: 380 }
+          }
         >
+          {/* Live Pinch-to-Close Gesture HUD */}
+          <AnimatePresence>
+            {isPinching && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.92 }}
+                transition={{ duration: 0.12 }}
+                className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/10 dark:bg-black/25 backdrop-blur-[1px]"
+              >
+                <div
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border shadow-hard text-xs font-semibold transition-colors ${
+                    isPinchReadyToClose
+                      ? 'bg-error text-white border-error'
+                      : 'bg-surface/95 text-text-main border-border'
+                  }`}
+                >
+                  <X size={14} strokeWidth={2.5} />
+                  <span>{isPinchReadyToClose ? 'Release to close' : 'Pinch inward to close'}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           {/* Window Header */}
           <div
             onDoubleClick={() => {
@@ -316,7 +466,9 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
                 onToggleMaximize();
               }
             }}
-            className="flex items-center justify-between px-3.5 py-2 md:px-4 md:py-3 border-b border-border bg-neutral-90/80 dark:bg-neutral-10/80 cursor-grab active:cursor-grabbing select-none shrink-0"
+            className={`flex items-center justify-between px-3.5 py-2 md:px-4 md:py-2.5 border-b border-border bg-neutral-90/80 dark:bg-neutral-10/80 select-none shrink-0 ${
+              isMobile || isMaximized ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
+            }`}
             onPointerDown={() => onFocus?.()}
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -325,6 +477,11 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
               </span>
               {snapSide && !isMaximized && (
                 <span className="text-[11px] font-mono text-text-muted">· {snapSide}</span>
+              )}
+              {isMaximized && !isMobile && (
+                <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-surface/80 border border-border text-[10px] font-mono text-text-muted">
+                  Full View
+                </span>
               )}
             </div>
 
@@ -352,7 +509,11 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
                   }}
                   aria-label={isMaximized ? `Restore ${title}` : `Maximize ${title}`}
                   title={isMaximized ? 'Restore' : 'Maximize'}
-                  className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-black/8 dark:hover:bg-white/10 transition-colors text-text-muted hover:text-text-main"
+                  className={`flex items-center justify-center w-7 h-7 rounded-full transition-colors ${
+                    isMaximized
+                      ? 'bg-primary/15 text-primary hover:bg-primary/25'
+                      : 'hover:bg-black/8 dark:hover:bg-white/10 text-text-muted hover:text-text-main'
+                  }`}
                 >
                   {isMaximized ? <Minimize2 size={14} strokeWidth={2.2} /> : <Maximize2 size={14} strokeWidth={2.2} />}
                 </button>
@@ -372,9 +533,9 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
             </div>
           </div>
 
-          {/* Content */}
+          {/* Content (Container Query Host) */}
           <div
-            className={`flex-1 overflow-y-auto overscroll-y-contain cursor-auto ${contentClassName ?? 'p-6 bg-surface'}`}
+            className={`@container flex-1 overflow-y-auto overscroll-y-contain cursor-auto ${contentClassName ?? 'p-6 bg-surface'}`}
             onPointerDown={(e) => e.stopPropagation()}
           >
             {children}

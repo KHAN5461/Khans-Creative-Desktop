@@ -31,9 +31,9 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ initialPreset = 'spring
   const waveCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Profile live state
-  const [profileName, setProfileName] = useState('Khan');
-  const [profileRole, setProfileRole] = useState('Creative Frontend Engineer');
-  const [profileStatus, setProfileStatus] = useState('Open to ambitious builds');
+  const [profileName, setProfileName] = useState('Khan Hassan');
+  const [profileRole, setProfileRole] = useState('Cloud, Backend & GenAI Engineer');
+  const [profileStatus, setProfileStatus] = useState('Open to Cloud-Native & AI Roles');
 
   const { playClick, playKey } = useSound();
 
@@ -86,7 +86,7 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ initialPreset = 'spring
       ? `const cardConfig = {\n  headline: "${cardHeadline}",\n  tiltStrength: ${cardTilt},\n  borderRadius: "${cardRadius}px",\n  spring: { stiffness: 320, damping: 24 }\n};`
       : preset === 'wave-canvas'
         ? `function drawHarmonicWave(ctx, t) {\n  const amplitude = ${waveAmp};\n  const frequency = ${waveFreq.toFixed(3)};\n  const speed = ${waveSpeed.toFixed(1)};\n  return Math.sin(x * frequency + t * speed) * amplitude;\n}`
-        : `export const developer = {\n  name: "${profileName}",\n  role: "${profileRole}",\n  availability: "${profileStatus}",\n  stack: ["React", "TypeScript", "Motion", "Canvas"],\n  email: "khanhassan5451@gmail.com"\n};`;
+        : `export const developer = {\n  name: "${profileName}",\n  role: "${profileRole}",\n  availability: "${profileStatus}",\n  location: "Mumbai, India",\n  stack: ["Python", "GCP", "Vertex AI", "Gemini", "React"],\n  github: "github.com/KHAN5461",\n  email: "khanhassan5451@gmail.com"\n};`;
 
   const handleCopy = () => {
     playClick();
@@ -103,9 +103,9 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ initialPreset = 'spring
     setWaveAmp(28);
     setWaveFreq(0.025);
     setWaveSpeed(2.2);
-    setProfileName('Khan');
-    setProfileRole('Creative Frontend Engineer');
-    setProfileStatus('Open to ambitious builds');
+    setProfileName('Khan Hassan');
+    setProfileRole('Cloud, Backend & GenAI Engineer');
+    setProfileStatus('Open to Cloud-Native & AI Roles');
   };
 
   return (
@@ -158,7 +158,7 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ initialPreset = 'spring
       {/* Split Sandbox: Live Preview + Interactive Parameters & Code */}
       <div className="flex-1 flex flex-col md:grid md:grid-cols-2 min-h-0 overflow-y-auto md:overflow-hidden overscroll-contain">
         {/* Live Preview Pane */}
-        <div className="p-4 sm:p-5 flex flex-col items-center justify-center bg-[#1e1e22] border-b md:border-b-0 md:border-r border-white/10 min-h-[195px] sm:min-h-[220px] shrink-0">
+        <div className="p-4 sm:p-5 @4xl:p-10 flex flex-col items-center justify-center bg-[#1e1e22] border-b md:border-b-0 md:border-r border-white/10 min-h-[195px] sm:min-h-[220px] shrink-0">
           {preset === 'spring-card' && (
             <div
               onPointerMove={(e) => {
@@ -173,7 +173,7 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ initialPreset = 'spring
                 });
               }}
               onPointerLeave={() => setTiltPos({ rx: 0, ry: 0, gx: 50, gy: 50 })}
-              className="w-full max-w-[240px] p-5 border border-white/15 bg-gradient-to-br from-white/10 to-white/[0.03] shadow-xl cursor-pointer transition-transform duration-150 ease-out"
+              className="w-full max-w-[240px] @4xl:max-w-[340px] p-5 @4xl:p-7 border border-white/15 bg-gradient-to-br from-white/10 to-white/[0.03] shadow-xl cursor-pointer transition-transform duration-150 ease-out"
               style={{
                 borderRadius: `${cardRadius}px`,
                 transform: `perspective(700px) rotateX(${tiltPos.rx}deg) rotateY(${tiltPos.ry}deg)`,
@@ -181,20 +181,20 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ initialPreset = 'spring
               }}
             >
               <span className="text-[11px] font-mono text-amber-300/90">Interactive Component</span>
-              <h3 className="mt-2 text-lg font-bold text-white leading-snug">{cardHeadline}</h3>
-              <p className="mt-2 text-xs text-neutral-400 leading-relaxed">
+              <h3 className="mt-2 text-lg @4xl:text-xl font-bold text-white leading-snug">{cardHeadline}</h3>
+              <p className="mt-2 text-xs @4xl:text-sm text-neutral-400 leading-relaxed">
                 Move cursor across this surface to feel live perspective tilt and radial sheen.
               </p>
             </div>
           )}
 
           {preset === 'wave-canvas' && (
-            <div className="w-full flex flex-col items-center gap-2">
+            <div className="w-full flex flex-col items-center gap-2.5">
               <canvas
                 ref={waveCanvasRef}
-                width={260}
-                height={150}
-                className="w-full max-w-[260px] h-[150px] rounded-xl bg-[#121215] border border-white/10"
+                width={320}
+                height={180}
+                className="w-full max-w-[260px] @4xl:max-w-[420px] h-[150px] @4xl:h-[220px] rounded-xl bg-[#121215] border border-white/10"
               />
               <span className="text-[11px] font-mono text-neutral-400 tabular-nums">
                 amp {waveAmp}px · freq {waveFreq.toFixed(3)} · {waveSpeed.toFixed(1)}x
@@ -203,21 +203,22 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ initialPreset = 'spring
           )}
 
           {preset === 'profile' && (
-            <div className="w-full max-w-[250px] rounded-2xl border border-white/15 bg-[#121215] p-5 space-y-3">
+            <div className="w-full max-w-[250px] @4xl:max-w-[340px] rounded-2xl border border-white/15 bg-[#121215] p-5 @4xl:p-7 space-y-3">
               <div>
-                <h3 className="text-base font-bold text-white">{profileName || 'Khan'}</h3>
-                <p className="text-xs text-neutral-400 mt-0.5">{profileRole}</p>
+                <h3 className="text-base @4xl:text-lg font-bold text-white">{profileName || 'Khan Hassan'}</h3>
+                <p className="text-xs @4xl:text-sm text-neutral-400 mt-0.5">{profileRole}</p>
               </div>
               <div className="h-px bg-white/10" />
-              <div className="text-xs text-neutral-300">{profileStatus}</div>
-              <div className="text-[11px] font-mono text-amber-300">khanhassan5451@gmail.com</div>
+              <div className="text-xs @4xl:text-sm text-neutral-300">{profileStatus}</div>
+              <div className="text-[11px] font-mono text-amber-300">github.com/KHAN5461</div>
             </div>
           )}
         </div>
 
         {/* Controls + Readout Code */}
-        <div className="flex flex-col justify-between p-4 gap-4 md:overflow-y-auto">
-          <div className="space-y-3">
+        <div className="flex flex-col p-4 @4xl:p-8 md:overflow-y-auto">
+          <div className="max-w-xl mx-auto w-full flex-1 flex flex-col justify-between gap-5">
+            <div className="space-y-3">
             <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
               Live Parameters
             </span>
@@ -354,9 +355,10 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ initialPreset = 'spring
             )}
           </div>
 
-          <pre className="p-3 rounded-xl bg-[#111114] border border-white/8 font-mono text-[11px] leading-relaxed text-emerald-300/90 overflow-x-auto select-text">
-            {codeString}
-          </pre>
+            <pre className="p-3.5 rounded-xl bg-[#111114] border border-white/8 font-mono text-[11px] @4xl:text-xs leading-relaxed text-emerald-300/90 overflow-x-auto select-text">
+              {codeString}
+            </pre>
+          </div>
         </div>
       </div>
     </div>

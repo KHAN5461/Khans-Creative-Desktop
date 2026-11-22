@@ -30,9 +30,12 @@ const KNOWN_COMMANDS = [
   'date',
   'clear',
   'error',
+  'reboot',
+  'restart',
+  'pong',
 ];
 
-const QUICK_CHIPS = ['help', 'open resume', 'open pixel', 'theme dev', 'sticker hello', 'party', 'error'];
+const QUICK_CHIPS = ['help', 'pong', 'open resume', 'open pixel', 'theme dev', 'sticker hello', 'party', 'reboot'];
 
 const Terminal: React.FC<TerminalProps> = ({ onCommand, onOpenWindow, onSwitchTheme }) => {
   const [history, setHistory] = useState<TerminalLine[]>([
@@ -81,11 +84,11 @@ const Terminal: React.FC<TerminalProps> = ({ onCommand, onOpenWindow, onSwitchTh
     switch (cmd) {
       case 'help':
         output =
-          'Commands: about · projects · resume · welcome · open <welcome|projects|resume|pixel|code|settings|ink> · theme <warm|dark|dev|minimal|ocean|lavender> · sticker <text> · party · sound <on|off> · contact · error · clear';
+          'Commands: about · projects · resume · welcome · pong [2p|bricks] · open <welcome|projects|resume|pixel|code|settings|ink> · theme <warm|dark|dev|minimal|ocean|lavender> · sticker <text> · party · sound <on|off> · contact · error · reboot · clear';
         break;
       case 'about':
         output =
-          'Khan — Principal Design Engineer & Creative Technologist crafting tactile web OS products and design systems.';
+          'Khan Hassan — Computer Engineering Student (Mumbai) · Cloud, Backend & GenAI Engineer building scalable AI systems on GCP, Vertex AI, Gemini & Python.';
         lineType = 'accent';
         break;
       case 'projects':
@@ -135,7 +138,7 @@ const Terminal: React.FC<TerminalProps> = ({ onCommand, onOpenWindow, onSwitchTh
         output = 'visitor@khan-os';
         break;
       case 'contact':
-        output = 'khanhassan5451@gmail.com · github.com · linkedin.com';
+        output = 'khanhassan5451@gmail.com · github.com/KHAN5461 · linkedin.com/in/khan-hassan-eng';
         lineType = 'accent';
         break;
       case 'date':
@@ -150,6 +153,17 @@ const Terminal: React.FC<TerminalProps> = ({ onCommand, onOpenWindow, onSwitchTh
       case 'party':
         playChime();
         output = onCommand?.('party', args) || 'Stickers remixed!';
+        lineType = 'accent';
+        break;
+      case 'reboot':
+      case 'restart':
+        playChime();
+        output = onCommand?.('reboot', args) || 'Initiating KhanOS system reboot...';
+        lineType = 'accent';
+        break;
+      case 'pong':
+        playChime();
+        output = onCommand?.('pong', args) || 'Morphing desktop into KhanOS Pong...';
         lineType = 'accent';
         break;
       case 'sticker':
@@ -205,7 +219,7 @@ const Terminal: React.FC<TerminalProps> = ({ onCommand, onOpenWindow, onSwitchTh
     >
       <div
         data-no-swipe="true"
-        className="flex items-center gap-1.5 px-3 py-2 border-b border-white/10 overflow-x-auto scrollbar-hide shrink-0"
+        className="flex items-center gap-1.5 px-3 @4xl:px-6 py-2 border-b border-white/10 overflow-x-auto scrollbar-hide shrink-0"
       >
         {QUICK_CHIPS.map((chip) => (
           <button
@@ -222,7 +236,7 @@ const Terminal: React.FC<TerminalProps> = ({ onCommand, onOpenWindow, onSwitchTh
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain space-y-1.5 p-3.5 sm:p-3">
+      <div className="flex-1 overflow-y-auto overscroll-contain space-y-1.5 p-3.5 sm:p-3 @4xl:px-6 @4xl:py-4">
         {history.map((line, i) => (
           <div
             key={i}
@@ -243,7 +257,7 @@ const Terminal: React.FC<TerminalProps> = ({ onCommand, onOpenWindow, onSwitchTh
         <div ref={endRef} />
       </div>
 
-      <div className="flex items-center gap-2 px-3.5 py-3 sm:px-3 sm:py-2.5 border-t border-white/10 bg-[#111113]">
+      <div className="flex items-center gap-2 px-3.5 py-3 sm:px-3 sm:py-2.5 @4xl:px-6 border-t border-white/10 bg-[#111113]">
         <span className="text-emerald-400">➜</span>
         <span className="text-sky-400">~</span>
         <input

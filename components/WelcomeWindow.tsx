@@ -21,8 +21,8 @@ const WelcomeWindow: React.FC<WelcomeWindowProps> = ({
   return (
     <div className="flex flex-col h-full bg-surface text-text-main overflow-y-auto overscroll-contain select-none">
       {/* Release Header */}
-      <div className="p-4 sm:p-6 pb-5 border-b border-border bg-bg-app/60">
-        <div className="max-w-4xl mx-auto w-full">
+      <div className="p-4 sm:p-6 @4xl:px-10 @4xl:py-8 pb-5 border-b border-border bg-bg-app/60 shrink-0">
+        <div className="max-w-5xl mx-auto w-full">
           <div className="flex items-center justify-between gap-4">
             <span className="text-xs font-mono text-text-muted">
               KhanOS Release 2.4 · Portfolio Edition
@@ -33,16 +33,16 @@ const WelcomeWindow: React.FC<WelcomeWindowProps> = ({
           </div>
 
           <h1 className="mt-2.5 sm:mt-3 text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-text-main leading-tight max-w-2xl">
-            Hi, I'm Khan — I craft tactile interfaces &amp; web products.
+            Hi, I&apos;m Khan Hassan — building cloud-native &amp; GenAI software.
           </h1>
           <p className="mt-2 sm:mt-2.5 text-xs sm:text-sm text-text-muted leading-relaxed max-w-xl">
-            Principal Design Engineer &amp; Creative Technologist building high-craft web applications,
-            design systems, and interactive motion tools. Explore this desktop to inspect live code,
-            try experimental sandboxes, or review my engineering dossier.
+            Computer Engineering student in Mumbai bridging complex cloud architecture with
+            user-centric software design — from localizing tourism data to resilient
+            disaster-communication frameworks like CrisisMesh AI.
           </p>
 
           <div className="mt-3.5 sm:mt-4 text-[11px] sm:text-xs font-mono text-text-muted leading-relaxed">
-            React · TypeScript · Tailwind CSS · Framer Motion · Canvas 2D · Material 3
+            Python · GCP · Vertex AI · Gemini · Streamlit · DevOps · React · TypeScript
           </div>
 
           <div className="mt-4 sm:mt-5 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2.5">
@@ -81,72 +81,74 @@ const WelcomeWindow: React.FC<WelcomeWindowProps> = ({
       </div>
 
       {/* Featured Releases Strip */}
-      <div className="p-4 sm:p-6">
-        <div className="max-w-4xl mx-auto w-full space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-            Featured Releases
-          </h2>
-          <button
-            onClick={() => {
-              playClick();
-              onOpenWindow('projects');
-            }}
-            className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-1"
-          >
-            All 6 projects <ArrowUpRight size={12} />
-          </button>
-        </div>
+      <div className="flex-1 flex flex-col p-4 sm:p-6 @4xl:px-10 @4xl:py-8">
+        <div className="max-w-5xl mx-auto w-full flex-1 flex flex-col justify-between gap-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                Featured Releases
+              </h2>
+              <button
+                onClick={() => {
+                  playClick();
+                  onOpenWindow('projects');
+                }}
+                className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-1"
+              >
+                All 6 projects <ArrowUpRight size={12} />
+              </button>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {featured.map((item) => (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 @4xl:gap-4">
+              {featured.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    playClick();
+                    onSelectProject(item.id);
+                  }}
+                  className="group p-3.5 sm:p-4 @4xl:p-5 rounded-xl border border-border bg-bg-app/70 hover:bg-neutral-90/70 dark:hover:bg-neutral-10/70 active:scale-[0.985] text-left transition-all flex flex-col justify-between gap-3 touch-manipulation"
+                >
+                  <div>
+                    <div className="text-[11px] font-mono text-text-muted">
+                      {item.category} · {item.year}
+                    </div>
+                    <div className="mt-1.5 text-sm @4xl:text-base font-semibold text-text-main group-hover:text-primary transition-colors">
+                      {item.title}
+                    </div>
+                    <p className="mt-1 text-xs text-text-muted line-clamp-2 @4xl:line-clamp-3 leading-relaxed">
+                      {item.summary}
+                    </p>
+                  </div>
+                  <div className="text-[11px] font-mono text-text-muted truncate">
+                    {item.stack.slice(0, 3).join(' · ')}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop Tips */}
+          <div className="pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border text-xs text-text-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <Sparkles size={13} className="text-primary shrink-0" />
+              <span className="hidden sm:inline">
+                Tip: Drag windows to screen edges to snap 50%, or fling stickers across the desk.
+              </span>
+              <span className="sm:hidden">
+                Tip: Swipe horizontally to switch apps, pinch inward to close, or 3-finger swipe to toggle desktop.
+              </span>
+            </span>
             <button
-              key={item.id}
               onClick={() => {
                 playClick();
-                onSelectProject(item.id);
+                onClose();
               }}
-              className="group p-3.5 sm:p-4 rounded-xl border border-border bg-bg-app/70 hover:bg-neutral-90/70 dark:hover:bg-neutral-10/70 active:scale-[0.985] text-left transition-all flex flex-col justify-between gap-2.5 touch-manipulation"
+              className="font-medium text-text-main hover:underline py-1"
             >
-              <div>
-                <div className="text-[11px] font-mono text-text-muted">
-                  {item.category} · {item.year}
-                </div>
-                <div className="mt-1.5 text-sm font-semibold text-text-main group-hover:text-primary transition-colors">
-                  {item.title}
-                </div>
-                <p className="mt-1 text-xs text-text-muted line-clamp-2 leading-relaxed">
-                  {item.summary}
-                </p>
-              </div>
-              <div className="text-[11px] font-mono text-text-muted truncate">
-                {item.stack.slice(0, 3).join(' · ')}
-              </div>
+              Dismiss to Desktop
             </button>
-          ))}
-        </div>
-
-        {/* Desktop Tips */}
-        <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border text-xs text-text-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <Sparkles size={13} className="text-primary shrink-0" />
-            <span className="hidden sm:inline">
-              Tip: Drag windows to screen edges to snap 50%, or fling stickers across the desk.
-            </span>
-            <span className="sm:hidden">
-              Tip: Swipe left or right on any sheet to switch apps, or tap Notes above.
-            </span>
-          </span>
-          <button
-            onClick={() => {
-              playClick();
-              onClose();
-            }}
-            className="font-medium text-text-main hover:underline py-1"
-          >
-            Dismiss to Desktop
-          </button>
-        </div>
+          </div>
         </div>
       </div>
     </div>
