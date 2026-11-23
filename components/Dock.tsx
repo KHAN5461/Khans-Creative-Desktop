@@ -292,7 +292,7 @@ const Dock: React.FC<DockProps> = ({
         >
           <div
             aria-hidden="true"
-            className="absolute inset-0 -z-10 rounded-[28px] border border-border bg-surface/95 backdrop-blur-md shadow-hard pointer-events-none"
+            className="absolute inset-0 -z-10 rounded-[28px] border border-border bg-surface/90 backdrop-blur-xl backdrop-saturate-150 shadow-hard pointer-events-none"
           />
         {/* Left: App Launcher + Spotlight Search */}
         <div className="flex items-center gap-1.5 shrink-0">
@@ -333,7 +333,7 @@ const Dock: React.FC<DockProps> = ({
                   cy="21"
                   r={ringRadius}
                   fill="none"
-                  stroke="var(--border-subtle)"
+                  stroke="var(--border-main)"
                   strokeWidth="3"
                 />
                 <circle
@@ -341,7 +341,7 @@ const Dock: React.FC<DockProps> = ({
                   cy="21"
                   r={ringRadius}
                   fill="none"
-                  stroke="var(--primary)"
+                  stroke="var(--m3-primary)"
                   strokeWidth="3"
                   strokeLinecap="round"
                   strokeDasharray={ringCircumference}

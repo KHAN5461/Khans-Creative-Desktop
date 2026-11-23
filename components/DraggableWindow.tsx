@@ -364,7 +364,7 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
             setSwipeX(0);
             setPinchScale(1);
           }}
-          className={`fixed flex flex-col overflow-hidden border shadow-hard bg-surface ${
+          className={`fixed flex flex-col overflow-hidden border shadow-hard bg-surface/95 backdrop-blur-xl backdrop-saturate-150 ${
             isMaximized ? 'rounded-[20px]' : 'rounded-2xl'
           } ${
             !isDragging && !isMobile
@@ -466,7 +466,7 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
                 onToggleMaximize();
               }
             }}
-            className={`flex items-center justify-between px-3.5 py-2 md:px-4 md:py-2.5 border-b border-border bg-neutral-90/80 dark:bg-neutral-10/80 select-none shrink-0 ${
+            className={`flex items-center justify-between px-3.5 py-2 md:px-4 md:py-2.5 border-b border-border bg-neutral-90/75 dark:bg-neutral-10/75 backdrop-blur-md backdrop-saturate-150 select-none shrink-0 ${
               isMobile || isMaximized ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
             }`}
             onPointerDown={() => onFocus?.()}

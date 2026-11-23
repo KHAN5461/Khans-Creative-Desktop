@@ -1,6 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Square, ExternalLink, Code2, Sparkles, Crosshair, X } from 'lucide-react';
+import {
+  Play,
+  Square,
+  ExternalLink,
+  Code2,
+  Sparkles,
+  Crosshair,
+  X,
+  Link2,
+  Check,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { IconBack, IconGithub } from './Icons';
 import { PORTFOLIO_PROJECTS } from '../data/projects';
 import { ProjectCategory, ProjectItem } from '../types';
@@ -394,39 +407,79 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(selectedProjectId);
   const [inspectMode, setInspectMode] = useState(false);
   const [activeSpecId, setActiveSpecId] = useState<string | null>(null);
+  const [activeArchId, setActiveArchId] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const { playClick, playPop } = useSound();
 
   useEffect(() => {
     setInternalSelectedId(selectedProjectId);
     setActiveSpecId(null);
+    setActiveArchId(null);
     setInspectMode(false);
+    setIsScrolled(false);
   }, [selectedProjectId]);
 
   const activeId = selectedProjectId !== undefined ? selectedProjectId : internalSelectedId;
   const setActiveId = (id: string | null) => {
     setInternalSelectedId(id);
     setActiveSpecId(null);
+    setActiveArchId(null);
     setInspectMode(false);
+    setIsScrolled(false);
     onSelectProjectId?.(id);
   };
 
-  const activeProject: ProjectItem | undefined = PORTFOLIO_PROJECTS.find((p) => p.id === activeId);
+  const activeProjectIndex = PORTFOLIO_PROJECTS.findIndex((p) => p.id === activeId);
+  const activeProject: ProjectItem | undefined =
+    activeProjectIndex >= 0 ? PORTFOLIO_PROJECTS[activeProjectIndex] : undefined;
   const activeSpecs = activeProject?.specs || [];
   const selectedSpec = activeSpecs.find((sp) => sp.id === activeSpecId) || activeSpecs[0] || null;
+  const activeArchNodes = activeProject?.architecture || [];
+  const selectedArch =
+    activeArchNodes.find((n) => n.id === activeArchId) || activeArchNodes[0] || null;
+
+  const prevProject =
+    activeProjectIndex >= 0
+      ? PORTFOLIO_PROJECTS[
+          (activeProjectIndex - 1 + PORTFOLIO_PROJECTS.length) % PORTFOLIO_PROJECTS.length
+        ]
+      : null;
+  const nextProject =
+    activeProjectIndex >= 0
+      ? PORTFOLIO_PROJECTS[(activeProjectIndex + 1) % PORTFOLIO_PROJECTS.length]
+      : null;
 
   const visibleProjects =
     category === 'All'
       ? PORTFOLIO_PROJECTS
       : PORTFOLIO_PROJECTS.filter((p) => p.category === category);
 
+  const handleCopyProjectLink = (projectId: string) => {
+    playClick();
+    const url = `${window.location.origin}${window.location.pathname}#project=${encodeURIComponent(
+      projectId
+    )}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 1600);
+  };
+
   if (activeProject) {
     return (
       <div className="flex flex-col h-full bg-surface text-text-main">
-        {/* Detail Header */}
-        <div className="border-b border-border bg-surface sticky top-0 z-10 px-3.5 sm:px-4 @4xl:px-6 py-3">
+        {/* Detail Header with Scroll Elevation */}
+        <div
+          className={`border-b border-border bg-surface/92 backdrop-blur-md backdrop-saturate-150 sticky top-0 z-10 px-3.5 sm:px-4 @4xl:px-6 py-3 transition-shadow duration-150 ${
+            isScrolled
+              ? 'shadow-[0_8px_20px_-12px_rgba(0,0,0,0.28)] dark:shadow-[0_10px_24px_-12px_rgba(0,0,0,0.7)]'
+              : ''
+          }`}
+        >
           <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
               <button
+                type="button"
                 onClick={() => {
                   playClick();
                   setActiveId(null);
@@ -444,13 +497,23 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               </div>
             </div>
 
-            <div
-              className={`grid ${
-                activeProject.liveUrl ? 'grid-cols-3' : 'grid-cols-2'
-              } sm:flex sm:flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto`}
-            >
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => handleCopyProjectLink(activeProject.id)}
+                title="Copy direct link to this project"
+                className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap shrink-0 touch-manipulation"
+              >
+                {copiedLink ? (
+                  <Check size={13} className="text-primary" />
+                ) : (
+                  <Link2 size={13} />
+                )}
+                <span>{copiedLink ? 'Copied' : 'Link'}</span>
+              </button>
               {onOpenCodeLab && (
                 <button
+                  type="button"
                   onClick={() => {
                     playClick();
                     const mappedPreset: CodePresetId =
@@ -493,146 +556,290 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
 
         {/* Detail Body */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 md:p-6 @4xl:p-8">
-          <div className="max-w-6xl mx-auto w-full grid grid-cols-1 @4xl:grid-cols-12 gap-6 @4xl:gap-8 items-start">
-            <div className="@4xl:col-span-7 @4xl:sticky @4xl:top-0">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                Interactive Demo Sandbox
-              </h3>
-              {activeSpecs.length > 0 && (
-                <button
-                  onClick={() => {
-                    playClick();
-                    setInspectMode((v) => {
-                      const next = !v;
-                      if (next && activeSpecs[0]) setActiveSpecId(activeSpecs[0].id);
-                      return next;
-                    });
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-2.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-full border text-[11px] font-medium transition-colors touch-manipulation ${
-                    inspectMode
-                      ? 'border-primary bg-primary text-primary-on shadow-sm'
-                      : 'border-border bg-bg-app text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10'
-                  }`}
-                >
-                  <Crosshair size={12} />
-                  <span>{inspectMode ? 'Inspector Active' : 'Inspect Specs'}</span>
-                </button>
-              )}
-            </div>
-
-            <div className="relative">
-              {activeProject.previewKind === 'fintech' && <FintechPreview />}
-              {activeProject.previewKind === 'ecomm' && <EcommPreview />}
-              {activeProject.previewKind === 'generative' && <GenerativePreview />}
-              {activeProject.previewKind === 'synth' && <SynthPreview />}
-              {activeProject.previewKind === 'spring-hook' && <SpringHookPreview />}
-              {activeProject.previewKind === 'tokens' && <TokensPreview />}
-
-              {/* Engineering Spec Pins Overlay */}
-              <AnimatePresence>
-                {inspectMode &&
-                  activeSpecs.map((pin, idx) => {
-                    const isSelected = selectedSpec?.id === pin.id;
-                    return (
-                      <motion.button
-                        key={pin.id}
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        transition={{ type: 'spring', stiffness: 450, damping: 24, delay: idx * 0.05 }}
-                        onClick={() => {
-                          playPop();
-                          setActiveSpecId(pin.id);
-                        }}
-                        style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-                        aria-label={`Inspect ${pin.label}`}
-                        className={`absolute -translate-x-1/2 -translate-y-1/2 z-10 inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-full border text-[11px] font-mono font-bold shadow-hard transition-transform cursor-pointer touch-manipulation ${
-                          isSelected
-                            ? 'bg-primary text-primary-on border-text-main scale-110'
-                            : 'bg-surface/95 text-text-main border-primary hover:scale-105'
-                        }`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                        <span>0{idx + 1}</span>
-                      </motion.button>
-                    );
-                  })}
-              </AnimatePresence>
-            </div>
-
-            {/* Active Spec Pin Detail Card */}
-            <AnimatePresence>
-              {inspectMode && selectedSpec && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.16 }}
-                  className="mt-2.5 p-3.5 rounded-xl border border-primary/40 bg-primary-container/15 space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-text-main">{selectedSpec.label}</span>
-                      <span className="px-2 py-0.5 rounded-md bg-surface border border-border text-[11px] font-mono text-primary font-semibold">
-                        {selectedSpec.metric}
-                      </span>
-                    </div>
+        <div
+          onScroll={(e) => setIsScrolled(e.currentTarget.scrollTop > 4)}
+          className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 md:p-6 @4xl:p-8"
+        >
+          <div className="max-w-6xl mx-auto w-full space-y-6">
+            <div className="grid grid-cols-1 @4xl:grid-cols-12 gap-6 @4xl:gap-8 items-start">
+              <div className="@4xl:col-span-7 @4xl:sticky @4xl:top-0">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h3 className="text-xs font-semibold text-text-muted">
+                    Interactive Demo Sandbox
+                  </h3>
+                  {activeSpecs.length > 0 && (
                     <button
-                      onClick={() => setInspectMode(false)}
-                      aria-label="Close inspector"
-                      className="p-1 rounded-md text-text-muted hover:text-text-main"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                  <p className="text-xs text-text-muted leading-relaxed">{selectedSpec.reason}</p>
-                  {selectedSpec.preset && onOpenCodeLab && (
-                    <button
+                      type="button"
                       onClick={() => {
                         playClick();
-                        onOpenCodeLab(selectedSpec.preset);
+                        setInspectMode((v) => {
+                          const next = !v;
+                          if (next && activeSpecs[0]) setActiveSpecId(activeSpecs[0].id);
+                          return next;
+                        });
                       }}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:underline"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-2.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-lg border text-[11px] font-medium transition-colors touch-manipulation ${
+                        inspectMode
+                          ? 'border-primary bg-primary text-primary-on shadow-sm'
+                          : 'border-border bg-bg-app text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10'
+                      }`}
                     >
-                      <Code2 size={12} />
-                      <span>Open matching sandbox in Code Lab →</span>
+                      <Crosshair size={12} />
+                      <span>{inspectMode ? 'Inspector Active' : 'Inspect Specs'}</span>
                     </button>
                   )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                </div>
 
-            <div className="@4xl:col-span-5 space-y-5 sm:space-y-6">
-              <div className="space-y-1.5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                  Architecture &amp; Summary
-                </h3>
-                <p className="text-sm text-text-main leading-relaxed">{activeProject.summary}</p>
+                <div className="relative">
+                  {activeProject.previewKind === 'fintech' && <FintechPreview />}
+                  {activeProject.previewKind === 'ecomm' && <EcommPreview />}
+                  {activeProject.previewKind === 'generative' && <GenerativePreview />}
+                  {activeProject.previewKind === 'synth' && <SynthPreview />}
+                  {activeProject.previewKind === 'spring-hook' && <SpringHookPreview />}
+                  {activeProject.previewKind === 'tokens' && <TokensPreview />}
+
+                  {/* Engineering Spec Pins Overlay */}
+                  <AnimatePresence>
+                    {inspectMode &&
+                      activeSpecs.map((pin, idx) => {
+                        const isSelected = selectedSpec?.id === pin.id;
+                        return (
+                          <motion.button
+                            type="button"
+                            key={pin.id}
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            transition={{
+                              type: 'spring',
+                              stiffness: 450,
+                              damping: 24,
+                              delay: idx * 0.05,
+                            }}
+                            onClick={() => {
+                              playPop();
+                              setActiveSpecId(pin.id);
+                            }}
+                            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                            aria-label={`Inspect ${pin.label}`}
+                            className={`absolute -translate-x-1/2 -translate-y-1/2 z-10 inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-full border text-[11px] font-mono font-bold shadow-hard transition-transform cursor-pointer touch-manipulation ${
+                              isSelected
+                                ? 'bg-primary text-primary-on border-text-main scale-110'
+                                : 'bg-surface/95 text-text-main border-primary hover:scale-105'
+                            }`}
+                          >
+                            <span>0{idx + 1}</span>
+                          </motion.button>
+                        );
+                      })}
+                  </AnimatePresence>
+                </div>
+
+                {/* Active Spec Pin Detail Card */}
+                <AnimatePresence>
+                  {inspectMode && selectedSpec && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.16 }}
+                      className="mt-2.5 p-3.5 rounded-xl border border-primary/40 bg-primary-container/15 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className="text-xs font-bold text-text-main">
+                            {selectedSpec.label}
+                          </span>
+                          <span className="text-[11px] font-mono text-primary font-semibold tabular-nums">
+                            {selectedSpec.metric}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setInspectMode(false)}
+                          aria-label="Close inspector"
+                          className="p-1 rounded-md text-text-muted hover:text-text-main"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                      <p className="text-xs text-text-muted leading-relaxed">
+                        {selectedSpec.reason}
+                      </p>
+                      {selectedSpec.preset && onOpenCodeLab && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playClick();
+                            onOpenCodeLab(selectedSpec.preset);
+                          }}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:underline"
+                        >
+                          <Code2 size={12} />
+                          <span>Open matching sandbox in Code Lab →</span>
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                  Engineering Highlights
-                </h3>
-                <ul className="space-y-2 text-sm text-text-main">
-                  {activeProject.highlights.map((hl, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-primary font-mono text-xs mt-1">0{i + 1}.</span>
-                      <span>{hl}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <div className="@4xl:col-span-5 space-y-5 sm:space-y-6">
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-semibold text-text-muted">
+                    Summary
+                  </h3>
+                  <p className="text-sm text-text-main leading-relaxed">{activeProject.summary}</p>
+                </div>
 
-              <div className="pt-3 border-t border-border">
-                <span className="text-xs font-mono text-text-muted">
-                  {activeProject.stack.join(' · ')}
-                </span>
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold text-text-muted">
+                    Engineering Highlights
+                  </h3>
+                  <ul className="space-y-2 text-sm text-text-main">
+                    {activeProject.highlights.map((hl, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-primary font-mono text-xs mt-1 tabular-nums">
+                          0{i + 1}.
+                        </span>
+                        <span>{hl}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="pt-3 border-t border-border">
+                  <span className="text-xs font-mono text-text-muted">
+                    {activeProject.stack.join(' · ')}
+                  </span>
+                </div>
               </div>
             </div>
+
+            {/* Interactive System Architecture Flow */}
+            {activeArchNodes.length > 0 && selectedArch && (
+              <section className="pt-5 border-t border-border space-y-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="text-xs font-semibold text-text-muted">
+                    Interactive System Architecture
+                  </h3>
+                  <span className="text-[11px] font-mono text-text-muted">
+                    Select any node to inspect data flow &amp; tradeoffs
+                  </span>
+                </div>
+
+                {/* Node Flow Pipeline */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 @4xl:grid-cols-4 gap-2.5">
+                  {activeArchNodes.map((node, idx) => {
+                    const isSelected = selectedArch.id === node.id;
+                    return (
+                      <div key={node.id} className="relative flex items-stretch">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playClick();
+                            setActiveArchId(node.id);
+                          }}
+                          className={`w-full p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 touch-manipulation ${
+                            isSelected
+                              ? 'border-primary bg-primary-container/25 shadow-soft'
+                              : 'border-border bg-bg-app/65 hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
+                            <span className={isSelected ? 'text-primary font-semibold' : 'text-text-muted'}>
+                              {node.stage}
+                            </span>
+                            <span className="text-text-muted tabular-nums truncate">
+                              {node.metric}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-text-main leading-snug">
+                              {node.title}
+                            </div>
+                            <div className="mt-0.5 text-[11px] font-mono text-text-muted truncate">
+                              {node.tech}
+                            </div>
+                          </div>
+                        </button>
+                        {idx < activeArchNodes.length - 1 && (
+                          <div
+                            aria-hidden="true"
+                            className="hidden @4xl:flex items-center justify-center -mr-2.5 pl-0.5 z-10 text-text-muted/60 pointer-events-none"
+                          >
+                            <ArrowRight size={13} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Selected Architecture Node Inspector */}
+                <motion.div
+                  key={selectedArch.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.16 }}
+                  className="p-4 rounded-xl border border-border bg-bg-app/80 flex flex-col sm:flex-row sm:items-start justify-between gap-3"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-2 text-xs">
+                      <span className="font-mono font-semibold text-primary">
+                        Stage {selectedArch.stage}
+                      </span>
+                      <span className="font-semibold text-text-main">{selectedArch.title}</span>
+                      <span className="text-text-muted font-mono">· {selectedArch.tech}</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-text-muted leading-relaxed">
+                      {selectedArch.detail}
+                    </p>
+                  </div>
+                  <div className="text-xs font-mono text-text-main tabular-nums shrink-0 sm:text-right">
+                    {selectedArch.metric}
+                  </div>
+                </motion.div>
+              </section>
+            )}
+
+            {/* Previous / Next Case Study Footer */}
+            {prevProject && nextProject && (
+              <div className="pt-4 border-t border-border flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClick();
+                    setActiveId(prevProject.id);
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-left transition-colors min-w-0 touch-manipulation"
+                >
+                  <ChevronLeft size={14} className="text-text-muted shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-mono text-text-muted">Previous</div>
+                    <div className="text-xs font-semibold text-text-main truncate">
+                      {prevProject.title}
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClick();
+                    setActiveId(nextProject.id);
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-right transition-colors min-w-0 touch-manipulation"
+                >
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-mono text-text-muted">Next</div>
+                    <div className="text-xs font-semibold text-text-main truncate">
+                      {nextProject.title}
+                    </div>
+                  </div>
+                  <ChevronRight size={14} className="text-text-muted shrink-0" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -641,14 +848,19 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-surface text-text-main select-none">
-      {/* Category Filter Bar */}
+      {/* Category Filter Bar with Scroll Elevation */}
       <div
         data-no-swipe="true"
-        className="px-3.5 sm:px-4 @4xl:px-6 py-2.5 border-b border-border bg-bg-app/70 shrink-0"
+        className={`px-3.5 sm:px-4 @4xl:px-6 py-2.5 border-b border-border bg-bg-app/80 backdrop-blur-md backdrop-saturate-150 shrink-0 transition-shadow duration-150 z-10 ${
+          isScrolled
+            ? 'shadow-[0_8px_20px_-12px_rgba(0,0,0,0.26)] dark:shadow-[0_10px_24px_-12px_rgba(0,0,0,0.68)]'
+            : ''
+        }`}
       >
         <div className="max-w-6xl mx-auto w-full flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
           {CATEGORIES.map((cat) => (
             <button
+              type="button"
               key={cat}
               onClick={() => {
                 playClick();
@@ -667,10 +879,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       </div>
 
       {/* Product Grid */}
-      <div className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-4 md:p-5 @4xl:p-7">
+      <div
+        onScroll={(e) => setIsScrolled(e.currentTarget.scrollTop > 4)}
+        className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-4 md:p-5 @4xl:p-7"
+      >
         <div className="max-w-6xl mx-auto w-full grid grid-cols-1 sm:grid-cols-2 @4xl:grid-cols-3 gap-3 sm:gap-4">
           {visibleProjects.map((project) => (
             <motion.button
+              type="button"
               key={project.id}
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.985 }}
@@ -708,7 +924,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           <span>{visibleProjects.length} releases</span>
           <span className="inline-flex items-center gap-1 truncate">
             <Sparkles size={11} className="text-primary shrink-0" />
-            <span className="truncate">Interactive demos inside</span>
+            <span className="truncate">Interactive demos &amp; architecture diagrams inside</span>
           </span>
         </div>
       </div>

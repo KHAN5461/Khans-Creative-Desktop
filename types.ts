@@ -74,6 +74,15 @@ export interface ProjectSpecPin {
   preset?: 'spring-card' | 'wave-canvas' | 'profile';
 }
 
+export interface ProjectArchNode {
+  id: string;
+  stage: string;
+  title: string;
+  tech: string;
+  metric: string;
+  detail: string;
+}
+
 export interface ProjectItem {
   id: string;
   title: string;
@@ -89,4 +98,5 @@ export interface ProjectItem {
   githubUrl: string;
   liveUrl?: string;
   specs?: ProjectSpecPin[];
+  architecture?: ProjectArchNode[];
 }

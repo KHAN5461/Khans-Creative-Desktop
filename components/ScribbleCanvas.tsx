@@ -11,6 +11,8 @@ interface ScribbleCanvasProps {
 
 const INK_COLORS = ['#1C1B1F', '#FFFFFF', '#D5A700', '#2563EB', '#E11D48', '#10B981'];
 
+const STROKE_SIZES = [2, 4, 8] as const;
+
 const ScribbleCanvas: React.FC<ScribbleCanvasProps> = ({ isActive, onExit }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const snapshotsRef = useRef<ImageData[]>([]);
@@ -20,9 +22,34 @@ const ScribbleCanvas: React.FC<ScribbleCanvasProps> = ({ isActive, onExit }) => 
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasStrokes, setHasStrokes] = useState(false);
   const [color, setColor] = useState(() => (theme.isDark ? '#FFFFFF' : '#1C1B1F'));
-  const [lineWidth, setLineWidth] = useState(4);
+  const [lineWidth, setLineWidth] = useState<number>(4);
+  const [inkMode, setInkMode] = useState<'pen' | 'highlighter'>('pen');
   const [tool, setTool] = useState<'pen' | 'highlighter' | 'eraser'>('pen');
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const { playClick, playStick } = useSound();
+
+  const handleInkSwitch = () => {
+    playClick();
+    if (tool === 'eraser') {
+      setTool(inkMode);
+    } else {
+      const nextMode = inkMode === 'pen' ? 'highlighter' : 'pen';
+      setInkMode(nextMode);
+      setTool(nextMode);
+    }
+  };
+
+  const handleCycleThickness = () => {
+    playClick();
+    setLineWidth((prev) => {
+      const idx = STROKE_SIZES.indexOf(prev as (typeof STROKE_SIZES)[number]);
+      return STROKE_SIZES[(idx + 1) % STROKE_SIZES.length];
+    });
+  };
+
+  useEffect(() => {
+    if (!isActive) setIsPaletteOpen(false);
+  }, [isActive]);
 
   useEffect(() => {
     setColor((prev) => {
@@ -91,7 +118,7 @@ const ScribbleCanvas: React.FC<ScribbleCanvasProps> = ({ isActive, onExit }) => 
 
   const exportDrawing = () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !hasStrokes) return;
     playStick();
     const url = canvas.toDataURL('image/png');
     const a = document.createElement('a');
@@ -113,6 +140,7 @@ const ScribbleCanvas: React.FC<ScribbleCanvasProps> = ({ isActive, onExit }) => 
       // ignore
     }
     saveSnapshot();
+    setIsPaletteOpen(false);
     setIsDrawing(true);
     setHasStrokes(true);
     lastPointRef.current = { x: e.clientX, y: e.clientY };
@@ -212,123 +240,258 @@ const ScribbleCanvas: React.FC<ScribbleCanvasProps> = ({ isActive, onExit }) => 
       <AnimatePresence>
         {isActive && (
           <motion.div
-            initial={{ y: -24, opacity: 0, scale: 0.96 }}
+            data-no-context-menu="true"
+            initial={{ y: -20, opacity: 0, scale: 0.96 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: -20, opacity: 0, scale: 0.96 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-            className="fixed top-[70px] md:top-4 left-1/2 -translate-x-1/2 z-[110] flex flex-wrap items-center justify-center gap-2 px-3.5 py-2 rounded-2xl bg-surface border border-border shadow-hard max-w-[94vw]"
+            exit={{ y: -16, opacity: 0, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+            className="fixed top-[8px] left-[10px] right-[10px] md:top-4 md:left-1/2 md:right-auto md:-translate-x-1/2 z-[110] md:w-max md:max-w-[calc(100vw-24px)]"
           >
-            <div className="flex items-center gap-1">
-              {(
-                [
-                  { id: 'pen', icon: <Pen size={15} />, label: 'Pen' },
-                  { id: 'highlighter', icon: <Highlighter size={15} />, label: 'Marker' },
-                  { id: 'eraser', icon: <Eraser size={15} />, label: 'Erase' },
-                ] as const
-              ).map((item) => (
+            {/* Primary Responsive Pill Bar (replaces mobile top bar on <md, centered floating pill on md+) */}
+            <div className="flex items-center justify-between md:justify-center gap-0.5 sm:gap-1 md:gap-2 h-[48px] md:h-auto px-1.5 sm:px-2 md:px-2.5 md:py-1.5 rounded-full bg-surface/90 backdrop-blur-xl backdrop-saturate-150 border border-border shadow-hard">
+              {/* Drawing Tools: Pen/Marker Switch + Eraser */}
+              <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
                 <button
-                  key={item.id}
-                  onClick={() => {
-                    playClick();
-                    setTool(item.id);
-                  }}
-                  title={item.label}
-                  className={`p-2 rounded-xl transition-colors ${
-                    tool === item.id
+                  type="button"
+                  onClick={handleInkSwitch}
+                  title={
+                    tool === 'eraser'
+                      ? inkMode === 'pen'
+                        ? 'Switch to Pen'
+                        : 'Switch to Marker'
+                      : inkMode === 'pen'
+                        ? 'Pen — tap to switch to Marker'
+                        : 'Marker — tap to switch to Pen'
+                  }
+                  aria-label={
+                    inkMode === 'pen'
+                      ? 'Pen active, switch to Marker'
+                      : 'Marker active, switch to Pen'
+                  }
+                  className={`relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-8 md:h-8 rounded-full transition-colors touch-manipulation ${
+                    tool !== 'eraser'
                       ? 'bg-primary text-primary-on'
                       : 'text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10'
                   }`}
                 >
-                  {item.icon}
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.span
+                      key={inkMode}
+                      initial={{ scale: 0.65, rotate: -18, opacity: 0 }}
+                      animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                      exit={{ scale: 0.65, rotate: 18, opacity: 0 }}
+                      transition={{ duration: 0.14 }}
+                      className="flex items-center justify-center -translate-y-[1.5px]"
+                    >
+                      {inkMode === 'pen' ? <Pen size={14} /> : <Highlighter size={14} />}
+                    </motion.span>
+                  </AnimatePresence>
+                  <span className="absolute bottom-[4px] flex items-center gap-[3px] pointer-events-none">
+                    <span
+                      className={`w-[3.5px] h-[3.5px] rounded-full transition-opacity ${
+                        inkMode === 'pen' ? 'bg-current opacity-100' : 'bg-current opacity-35'
+                      }`}
+                    />
+                    <span
+                      className={`w-[3.5px] h-[3.5px] rounded-full transition-opacity ${
+                        inkMode === 'highlighter' ? 'bg-current opacity-100' : 'bg-current opacity-35'
+                      }`}
+                    />
+                  </span>
                 </button>
-              ))}
-            </div>
 
-            <div className="w-px h-5 bg-border" />
-
-            <div className="flex items-center gap-1.5">
-              {INK_COLORS.map((swatch) => (
                 <button
-                  key={swatch}
+                  type="button"
                   onClick={() => {
                     playClick();
-                    setColor(swatch);
-                    if (tool === 'eraser') setTool('pen');
+                    setTool('eraser');
                   }}
-                  aria-label={`Ink color ${swatch}`}
-                  className={`w-5 h-5 rounded-full border transition-transform ${
-                    color === swatch && tool !== 'eraser'
-                      ? 'scale-120 ring-2 ring-primary ring-offset-2 ring-offset-surface border-text-main'
-                      : 'border-black/20 hover:scale-110'
+                  title="Eraser"
+                  aria-label="Eraser"
+                  className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-8 md:h-8 rounded-full transition-colors touch-manipulation ${
+                    tool === 'eraser'
+                      ? 'bg-primary text-primary-on'
+                      : 'text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10'
                   }`}
-                  style={{ backgroundColor: swatch }}
-                />
-              ))}
-            </div>
+                >
+                  <Eraser size={15} />
+                </button>
+              </div>
 
-            <div className="w-px h-5 bg-border" />
+              <div className="w-px h-5 bg-border shrink-0" />
 
-            <div className="flex items-center gap-1">
-              {[2, 4, 8].map((sz) => (
+              {/* Mobile Compact Color & Dedicated Thickness Buttons (<md) */}
+              <div className="flex md:hidden items-center gap-1 shrink-0">
                 <button
-                  key={sz}
+                  type="button"
                   onClick={() => {
                     playClick();
-                    setLineWidth(sz);
+                    setIsPaletteOpen((v) => !v);
                   }}
-                  title={`Stroke ${sz}px`}
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                    lineWidth === sz
-                      ? 'bg-neutral-90 dark:bg-neutral-10 text-text-main'
-                      : 'text-text-muted hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60'
+                  aria-label="Ink color"
+                  title="Ink color"
+                  className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border transition-colors touch-manipulation ${
+                    isPaletteOpen
+                      ? 'border-primary bg-primary-container/35'
+                      : 'border-border bg-bg-app'
                   }`}
                 >
                   <span
-                    className="rounded-full bg-current"
-                    style={{ width: sz + 3, height: sz + 3 }}
+                    className="w-4 h-4 rounded-full border border-black/25 dark:border-white/30"
+                    style={{ backgroundColor: color }}
                   />
                 </button>
-              ))}
-            </div>
 
-            <div className="w-px h-5 bg-border" />
-
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleUndo}
-                title="Undo stroke"
-                className="p-2 rounded-xl text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10"
-              >
-                <Undo2 size={15} />
-              </button>
-              <button
-                onClick={clearCanvas}
-                title="Clear desktop ink"
-                className="p-2 rounded-xl text-error hover:bg-error/10"
-              >
-                <Trash2 size={15} />
-              </button>
-              {hasStrokes && (
                 <button
+                  type="button"
+                  onClick={handleCycleThickness}
+                  aria-label={`Stroke thickness ${lineWidth}px`}
+                  title={`Thickness ${lineWidth}px — tap to cycle`}
+                  className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-border bg-bg-app text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10 transition-colors touch-manipulation"
+                >
+                  <motion.span
+                    animate={{ width: lineWidth + 4, height: lineWidth + 4 }}
+                    transition={{ type: 'spring', stiffness: 460, damping: 26 }}
+                    className="rounded-full bg-current"
+                  />
+                </button>
+              </div>
+
+              {/* Desktop Inline Color Swatches (md+) */}
+              <div className="hidden md:flex items-center gap-1.5 shrink-0">
+                {INK_COLORS.map((swatch) => (
+                  <button
+                    key={swatch}
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setColor(swatch);
+                      if (tool === 'eraser') setTool(inkMode);
+                    }}
+                    aria-label={`Ink color ${swatch}`}
+                    className={`w-5 h-5 rounded-full border transition-transform ${
+                      color === swatch && tool !== 'eraser'
+                        ? 'scale-120 ring-2 ring-primary ring-offset-2 ring-offset-surface border-text-main'
+                        : 'border-black/20 dark:border-white/25 hover:scale-110'
+                    }`}
+                    style={{ backgroundColor: swatch }}
+                  />
+                ))}
+              </div>
+
+              <div className="hidden md:block w-px h-5 bg-border shrink-0" />
+
+              {/* Desktop Inline Stroke Sizes (md+) */}
+              <div className="hidden md:flex items-center gap-1 shrink-0">
+                {STROKE_SIZES.map((sz) => (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setLineWidth(sz);
+                    }}
+                    title={`Thickness ${sz}px`}
+                    aria-label={`Thickness ${sz}px`}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                      lineWidth === sz
+                        ? 'bg-neutral-90 dark:bg-neutral-10 text-text-main'
+                        : 'text-text-muted hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60'
+                    }`}
+                  >
+                    <span
+                      className="rounded-full bg-current"
+                      style={{ width: sz + 3, height: sz + 3 }}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <div className="w-px h-5 bg-border shrink-0" />
+
+              {/* History & Download Controls */}
+              <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  title="Undo stroke"
+                  aria-label="Undo stroke"
+                  className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-8 md:h-8 rounded-full text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10 touch-manipulation"
+                >
+                  <Undo2 size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={clearCanvas}
+                  title="Clear desktop ink"
+                  aria-label="Clear desktop ink"
+                  className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-8 md:h-8 rounded-full text-error hover:bg-error/10 touch-manipulation"
+                >
+                  <Trash2 size={15} />
+                </button>
+                <button
+                  type="button"
                   onClick={exportDrawing}
-                  title="Download doodle PNG"
-                  className="p-2 rounded-xl text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10"
+                  disabled={!hasStrokes}
+                  title={hasStrokes ? 'Download doodle PNG' : 'Draw something to download'}
+                  aria-label="Download doodle PNG"
+                  className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-8 md:h-8 rounded-full transition-opacity touch-manipulation ${
+                    hasStrokes
+                      ? 'text-text-main hover:bg-neutral-90 dark:hover:bg-neutral-10'
+                      : 'text-text-muted opacity-35 cursor-not-allowed'
+                  }`}
                 >
                   <Download size={15} />
                 </button>
-              )}
+              </div>
+
+              {/* Done Tick CTA (Icon-Only) */}
+              <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  onExit();
+                }}
+                title="Done drawing"
+                aria-label="Done drawing"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-8 md:h-8 rounded-full bg-primary text-primary-on hover:opacity-90 shrink-0 touch-manipulation"
+              >
+                <Check size={16} strokeWidth={2.5} />
+              </button>
             </div>
 
-            <button
-              onClick={() => {
-                playClick();
-                onExit();
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-on text-xs font-semibold hover:opacity-90 whitespace-nowrap shrink-0"
-            >
-              <Check size={14} />
-              Done
-            </button>
+            {/* Mobile Attached Color Palette Tray (<md) */}
+            <AnimatePresence>
+              {isPaletteOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ type: 'spring', stiffness: 440, damping: 28 }}
+                  className="md:hidden mt-2 px-3 py-2.5 rounded-full bg-surface/95 backdrop-blur-md border border-border shadow-hard flex items-center justify-between gap-2"
+                >
+                  {INK_COLORS.map((swatch) => (
+                    <button
+                      key={swatch}
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setColor(swatch);
+                        if (tool === 'eraser') setTool(inkMode);
+                        setIsPaletteOpen(false);
+                      }}
+                      aria-label={`Ink color ${swatch}`}
+                      className={`w-7 h-7 rounded-full border transition-transform touch-manipulation ${
+                        color === swatch && tool !== 'eraser'
+                          ? 'scale-115 ring-2 ring-primary ring-offset-2 ring-offset-surface border-text-main'
+                          : 'border-black/20 dark:border-white/25'
+                      }`}
+                      style={{ backgroundColor: swatch }}
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

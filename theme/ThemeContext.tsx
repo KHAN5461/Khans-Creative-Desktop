@@ -75,13 +75,24 @@ interface UnifiedTonalContextType {
   wallpaper: Wallpaper;
   customWallpaper: Wallpaper | null;
   extractedSeed: string | null;
+  customSeedColor: string | null;
+  wallpaperBlur: number;
+  wallpaperDim: number;
+  wallpaperParallax: boolean;
+  focusDepthBlur: boolean;
   setTheme: (id: ThemeId) => void;
   setContrast: (level: ContrastLevel) => void;
   setDarkMode: (isDark: boolean) => void;
   toggleDarkMode: () => void;
   setWallpaper: (wp: Wallpaper) => void;
+  cycleWallpaper: () => Wallpaper;
   setCustomWallpaper: (wp: Wallpaper | null) => void;
   setDynamicDark: (isDark: boolean) => void;
+  setCustomSeedColor: (hex: string | null) => void;
+  setWallpaperBlur: (blur: number) => void;
+  setWallpaperDim: (dim: number) => void;
+  setWallpaperParallax: (enabled: boolean) => void;
+  setFocusDepthBlur: (enabled: boolean) => void;
   resetAppearance: () => void;
 }
 
@@ -288,7 +299,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         try {
           const parsed = JSON.parse(saved) as Wallpaper;
           const presetMatch = PRESET_WALLPAPERS.find((p) => p.id === parsed.id);
-          return presetMatch || parsed;
+          if (presetMatch) return presetMatch;
+          if (
+            parsed &&
+            parsed.type === 'custom' &&
+            typeof parsed.value === 'string' &&
+            parsed.value.length > 0
+          ) {
+            return parsed;
+          }
         } catch {
           // ignore
         }
@@ -311,16 +330,65 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return null;
   });
 
+  const [customSeedColor, setCustomSeedColorState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('app-custom-seed');
+      if (saved && /^#[0-9a-fA-F]{6}$/.test(saved)) return saved;
+    }
+    return null;
+  });
+
+  const [wallpaperBlur, setWallpaperBlurState] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = Number(localStorage.getItem('app-wp-blur'));
+      if (!Number.isNaN(saved) && saved >= 0 && saved <= 16) return saved;
+    }
+    return 0;
+  });
+
+  const [wallpaperDim, setWallpaperDimState] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('app-wp-dim');
+      if (saved !== null) {
+        const num = Number(saved);
+        if (!Number.isNaN(num) && num >= 0 && num <= 60) return num;
+      }
+    }
+    return 18;
+  });
+
+  const [wallpaperParallax, setWallpaperParallaxState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('app-wp-parallax');
+      if (saved === 'false') return false;
+    }
+    return true;
+  });
+
+  const [focusDepthBlur, setFocusDepthBlurState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('app-wp-focus-blur');
+      if (saved === 'false') return false;
+    }
+    return true;
+  });
+
   const [dynamicColors, setDynamicColors] = useState<ThemeColors | null>(null);
   const [dynamicDark, setDynamicDark] = useState<boolean>(false);
   const [extractedSeed, setExtractedSeed] = useState<string | null>(null);
 
   const setTheme = useCallback((id: ThemeId) => {
     setWallpaperState(PRESET_WALLPAPERS[0]);
+    setCustomSeedColorState(null);
     setDynamicColors(null);
     setExtractedSeed(null);
     setDarkOverride(null);
     setThemeIdState(id);
+    try {
+      localStorage.removeItem('app-custom-seed');
+    } catch {
+      // ignore
+    }
   }, []);
 
   const setContrast = useCallback((level: ContrastLevel) => {
@@ -336,8 +404,69 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setWallpaperState(next);
   }, []);
 
+  const cycleWallpaper = useCallback((): Wallpaper => {
+    const list = [...PRESET_WALLPAPERS, ...(customWallpaper ? [customWallpaper] : [])];
+    const currentIdx = list.findIndex((w) => w.id === wallpaper.id);
+    const next = list[(currentIdx + 1) % list.length];
+    setWallpaperState(next);
+    return next;
+  }, [wallpaper.id, customWallpaper]);
+
+  const setCustomSeedColor = useCallback((hex: string | null) => {
+    setCustomSeedColorState(hex);
+    try {
+      if (hex) localStorage.setItem('app-custom-seed', hex);
+      else localStorage.removeItem('app-custom-seed');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const setWallpaperBlur = useCallback((blur: number) => {
+    const clamped = Math.max(0, Math.min(16, Math.round(blur)));
+    setWallpaperBlurState(clamped);
+    try {
+      localStorage.setItem('app-wp-blur', String(clamped));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const setWallpaperDim = useCallback((dim: number) => {
+    const clamped = Math.max(0, Math.min(60, Math.round(dim)));
+    setWallpaperDimState(clamped);
+    try {
+      localStorage.setItem('app-wp-dim', String(clamped));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const setWallpaperParallax = useCallback((enabled: boolean) => {
+    setWallpaperParallaxState(enabled);
+    try {
+      localStorage.setItem('app-wp-parallax', String(enabled));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const setFocusDepthBlur = useCallback((enabled: boolean) => {
+    setFocusDepthBlurState(enabled);
+    try {
+      localStorage.setItem('app-wp-focus-blur', String(enabled));
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const resetAppearance = useCallback(() => {
     setWallpaperState(PRESET_WALLPAPERS[0]);
+    setCustomSeedColorState(null);
+    setWallpaperBlurState(0);
+    setWallpaperDimState(18);
+    setWallpaperParallaxState(true);
+    setFocusDepthBlurState(true);
     setDynamicColors(null);
     setExtractedSeed(null);
     setDarkOverride(null);
@@ -345,7 +474,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setThemeIdState('warm');
     try {
       localStorage.removeItem('app-dark-override');
+      localStorage.removeItem('app-custom-seed');
       localStorage.setItem('app-contrast', 'standard');
+      localStorage.setItem('app-wp-blur', '0');
+      localStorage.setItem('app-wp-dim', '18');
+      localStorage.setItem('app-wp-parallax', 'true');
+      localStorage.setItem('app-wp-focus-blur', 'true');
     } catch {
       // ignore
     }
@@ -360,7 +494,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     let cancelled = false;
 
-    const processWallpaperTheme = async () => {
+    const processThemeSource = async () => {
+      if (customSeedColor) {
+        const result = await generateThemeColors(customSeedColor);
+        if (!cancelled && result) {
+          setDynamicColors(result.colors);
+          setExtractedSeed(result.seedHex);
+        }
+        return;
+      }
+
       if (wallpaper.type === 'default') {
         setDynamicColors(null);
         setExtractedSeed(null);
@@ -378,12 +521,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
 
-    processWallpaperTheme();
+    processThemeSource();
 
     return () => {
       cancelled = true;
     };
-  }, [wallpaper]);
+  }, [wallpaper, customSeedColor]);
 
   useEffect(() => {
     if (customWallpaper) {
@@ -401,7 +544,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return {
         ...baseTheme,
         id: 'dynamic',
-        name: 'Dynamic Wallpaper',
+        name: customSeedColor ? 'Custom Seed' : 'Dynamic Wallpaper',
         isDark: dynamicDark,
         colors: dynamicColors,
       };
@@ -412,7 +555,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...base,
       isDark,
     };
-  }, [themeId, darkOverride, dynamicColors, dynamicDark]);
+  }, [themeId, darkOverride, dynamicColors, dynamicDark, customSeedColor]);
 
   const setDarkMode = useCallback(
     (isDark: boolean) => {
@@ -464,13 +607,24 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         wallpaper,
         customWallpaper,
         extractedSeed,
+        customSeedColor,
+        wallpaperBlur,
+        wallpaperDim,
+        wallpaperParallax,
+        focusDepthBlur,
         setTheme,
         setContrast,
         setDarkMode,
         toggleDarkMode,
         setWallpaper,
+        cycleWallpaper,
         setCustomWallpaper,
         setDynamicDark,
+        setCustomSeedColor,
+        setWallpaperBlur,
+        setWallpaperDim,
+        setWallpaperParallax,
+        setFocusDepthBlur,
         resetAppearance,
       }}
     >

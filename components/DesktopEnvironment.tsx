@@ -7,9 +7,13 @@ import {
   Search,
   User,
   Columns2,
+  LayoutGrid,
+  Image as ImageIcon,
 } from 'lucide-react';
 import Sticker from './Sticker';
 import StickerCreatorModal from './StickerCreatorModal';
+import QuickContactModal from './QuickContactModal';
+import WindowExposeOverlay, { ExposeWindowMeta } from './WindowExposeOverlay';
 import BootOverlay from './BootOverlay';
 import Dock from './Dock';
 import DraggableWindow from './DraggableWindow';
@@ -150,6 +154,46 @@ const normalizeWindowZ = (
 
 const TONE_CYCLE: StickerTone[] = ['surface', 'amber', 'mint', 'lavender', 'rose'];
 
+const parseDeepLinkRoute = (): {
+  app: WindowId | null;
+  projectId: string | null;
+  openContact: boolean;
+} => {
+  if (typeof window === 'undefined') {
+    return { app: null, projectId: null, openContact: false };
+  }
+  const searchParams = new URLSearchParams(window.location.search);
+  const rawHash = window.location.hash.replace(/^#/, '');
+
+  // Support path-style hashes like #/projects/crisismesh-ai, #/resume, #/contact
+  if (rawHash.startsWith('/')) {
+    const parts = rawHash.replace(/^\/+/, '').split('/').filter(Boolean);
+    if (parts[0] === 'contact') {
+      return { app: null, projectId: null, openContact: true };
+    }
+    if (parts[0] === 'projects' && parts[1] && PORTFOLIO_PROJECTS.some((p) => p.id === parts[1])) {
+      return { app: 'projects', projectId: parts[1], openContact: false };
+    }
+    if (parts[0] && parts[0] in INITIAL_WINDOWS) {
+      return { app: parts[0] as WindowId, projectId: null, openContact: false };
+    }
+  }
+
+  const hashParams = new URLSearchParams(rawHash);
+  const projectParam = hashParams.get('project') || searchParams.get('project');
+  const appParam = (hashParams.get('app') || searchParams.get('app')) as WindowId | null;
+  const contactParam =
+    rawHash === 'contact' || hashParams.get('contact') === '1' || searchParams.get('contact') === '1';
+
+  if (projectParam && PORTFOLIO_PROJECTS.some((p) => p.id === projectParam)) {
+    return { app: 'projects', projectId: projectParam, openContact: contactParam };
+  }
+  if (appParam && appParam in INITIAL_WINDOWS) {
+    return { app: appParam, projectId: null, openContact: contactParam };
+  }
+  return { app: null, projectId: null, openContact: contactParam };
+};
+
 const DesktopEnvironment: React.FC = () => {
   const [stickers, setStickers] = useState<StickerData[]>(() => {
     if (typeof window !== 'undefined') {
@@ -167,61 +211,52 @@ const DesktopEnvironment: React.FC = () => {
   });
 
   const [windows, setWindows] = useState<Record<WindowId, WindowState>>(() => {
-    if (typeof window !== 'undefined' && window.location.hash) {
-      const hash = window.location.hash.replace(/^#/, '');
-      const params = new URLSearchParams(hash);
-      const projectParam = params.get('project');
-      const appParam = params.get('app') as WindowId | null;
-      if (projectParam && PORTFOLIO_PROJECTS.some((p) => p.id === projectParam)) {
-        return normalizeWindowZ(
-          {
-            ...INITIAL_WINDOWS,
-            welcome: { ...INITIAL_WINDOWS.welcome, isOpen: false },
-            projects: { ...INITIAL_WINDOWS.projects, isOpen: true, isMinimized: false },
-          },
-          ['projects']
-        );
-      }
-      if (appParam && appParam in INITIAL_WINDOWS) {
-        return normalizeWindowZ(
-          {
-            ...INITIAL_WINDOWS,
-            welcome: { ...INITIAL_WINDOWS.welcome, isOpen: appParam === 'welcome' },
-            [appParam]: { ...INITIAL_WINDOWS[appParam], isOpen: true, isMinimized: false },
-          },
-          [appParam]
-        );
-      }
+    const route = parseDeepLinkRoute();
+    if (route.app) {
+      return normalizeWindowZ(
+        {
+          ...INITIAL_WINDOWS,
+          welcome: { ...INITIAL_WINDOWS.welcome, isOpen: route.app === 'welcome' },
+          [route.app]: { ...INITIAL_WINDOWS[route.app], isOpen: true, isMinimized: false },
+        },
+        [route.app]
+      );
     }
     return INITIAL_WINDOWS;
   });
 
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined' && window.location.hash) {
-      const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-      const projectParam = params.get('project');
-      if (projectParam && PORTFOLIO_PROJECTS.some((p) => p.id === projectParam)) {
-        return projectParam;
-      }
-    }
-    return null;
-  });
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    () => parseDeepLinkRoute().projectId
+  );
   const [codePreset, setCodePreset] = useState<CodePresetId>('spring-card');
   const [snapPreview, setSnapPreview] = useState<SnapSide>(null);
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
+  const [isContactOpen, setIsContactOpen] = useState(() => parseDeepLinkRoute().openContact);
+  const [isExposeOpen, setIsExposeOpen] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [isInkMode, setIsInkMode] = useState(false);
   const [toyMode, setToyMode] = useState<ToyMode>('default');
   const [showMobileStickers, setShowMobileStickers] = useState(false);
   const [gestureHud, setGestureHud] = useState<string | null>(null);
   const [rebootCount, setRebootCount] = useState(0);
+  const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 });
   const [pongSession, setPongSession] = useState<{
     geometry: PongUiGeometry;
     initialMode: PongMode;
   } | null>(null);
   const [pongHideStickers, setPongHideStickers] = useState(false);
+  const [isPongExiting, setIsPongExiting] = useState(false);
 
-  const { themeId, setTheme, wallpaper } = useTheme();
+  const {
+    themeId,
+    setTheme,
+    wallpaper,
+    cycleWallpaper,
+    wallpaperBlur,
+    wallpaperDim,
+    wallpaperParallax,
+    focusDepthBlur,
+  } = useTheme();
   const { soundEnabled, setSoundEnabled, playOpen, playClick, playStick, playSnap, playMinimize, playChime } =
     useSound();
   const constraintsRef = useRef<HTMLDivElement>(null);
@@ -244,6 +279,8 @@ const DesktopEnvironment: React.FC = () => {
     return topId;
   }, [windows]);
 
+  const hasVisibleWindow = focusedWindowId !== null;
+
   const hasMaximizedWindow = React.useMemo(
     () =>
       (Object.keys(windows) as WindowId[]).some((id) => {
@@ -253,11 +290,22 @@ const DesktopEnvironment: React.FC = () => {
     [windows]
   );
 
-  // Keep URL hash synced with focused app or active project
+  const hideWallpaperForPong = Boolean(pongSession) && !isPongExiting;
+
+  const effectiveWallpaperBlur =
+    wallpaperBlur + (focusDepthBlur && hasVisibleWindow ? 6 : 0);
+  const effectiveDimOpacity = Math.min(
+    0.72,
+    (wallpaperDim + (focusDepthBlur && hasVisibleWindow ? 8 : 0)) / 100
+  );
+
+  // Keep URL hash synced with focused app, active project, or contact sheet
   useEffect(() => {
     if (typeof window === 'undefined') return;
     let nextHash = '';
-    if (focusedWindowId === 'projects' && selectedProjectId) {
+    if (isContactOpen) {
+      nextHash = '#contact';
+    } else if (focusedWindowId === 'projects' && selectedProjectId) {
       nextHash = `#project=${encodeURIComponent(selectedProjectId)}`;
     } else if (focusedWindowId && focusedWindowId !== 'welcome') {
       nextHash = `#app=${focusedWindowId}`;
@@ -265,7 +313,65 @@ const DesktopEnvironment: React.FC = () => {
     if (window.location.hash !== nextHash) {
       window.history.replaceState(null, '', nextHash || window.location.pathname + window.location.search);
     }
-  }, [focusedWindowId, selectedProjectId]);
+  }, [focusedWindowId, selectedProjectId, isContactOpen]);
+
+  // Live deep-link hashchange listener (browser back/forward or pasted hash links)
+  useEffect(() => {
+    const onHashChange = () => {
+      const route = parseDeepLinkRoute();
+      if (route.openContact) {
+        setIsContactOpen(true);
+        return;
+      }
+      if (route.projectId) {
+        setSelectedProjectId(route.projectId);
+      }
+      if (route.app) {
+        const target = route.app;
+        setWindows((prev) =>
+          normalizeWindowZ(
+            {
+              ...prev,
+              [target]: { ...prev[target], isOpen: true, isMinimized: false },
+            },
+            [target]
+          )
+        );
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  // Subtle desktop cursor parallax for wallpaper depth
+  useEffect(() => {
+    if (!wallpaperParallax || typeof window === 'undefined') {
+      setParallaxOffset({ x: 0, y: 0 });
+      return;
+    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setParallaxOffset({ x: 0, y: 0 });
+      return;
+    }
+    let rafId = 0;
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || window.innerWidth < 768) return;
+      const nx = (e.clientX / window.innerWidth - 0.5) * 2;
+      const ny = (e.clientY / window.innerHeight - 0.5) * 2;
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setParallaxOffset({
+          x: Math.round(-nx * 10 * 10) / 10,
+          y: Math.round(-ny * 8 * 10) / 10,
+        });
+      });
+    };
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [wallpaperParallax]);
 
   useEffect(() => {
     try {
@@ -306,6 +412,7 @@ const DesktopEnvironment: React.FC = () => {
     setSnapPreview(null);
     setPongSession(null);
     setPongHideStickers(false);
+    setIsPongExiting(false);
     desktopSnapshotRef.current = null;
     pongTuckedWindowsRef.current = null;
     setRebootCount((c) => c + 1);
@@ -403,6 +510,7 @@ const DesktopEnvironment: React.FC = () => {
       setShowMobileStickers(false);
       setSnapPreview(null);
 
+      setIsPongExiting(false);
       setPongSession({
         geometry: {
           menuBallRect,
@@ -423,6 +531,7 @@ const DesktopEnvironment: React.FC = () => {
     (summary?: { won: boolean; mode: PongMode; scoreText: string }) => {
       setPongSession(null);
       setPongHideStickers(false);
+      setIsPongExiting(false);
 
       const tucked = pongTuckedWindowsRef.current;
       pongTuckedWindowsRef.current = null;
@@ -561,22 +670,31 @@ const DesktopEnvironment: React.FC = () => {
     };
   }, [isInkMode, isSpotlightOpen, isCreatorOpen, pongSession, toggleDesktopVisibility]);
 
-  // Global Cmd/Ctrl + K Spotlight shortcut & Escape dismiss
+  // Global Cmd/Ctrl + K Spotlight, Cmd/Ctrl + / Window Overview, & Escape dismiss
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         if (pongSession) return;
         e.preventDefault();
         playClick();
+        setIsExposeOpen(false);
         setIsSpotlightOpen((prev) => !prev);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        if (pongSession) return;
+        e.preventDefault();
+        playClick();
+        setIsSpotlightOpen(false);
+        setIsExposeOpen((prev) => !prev);
       } else if (e.key === 'Escape') {
-        if (isCreatorOpen) setIsCreatorOpen(false);
+        if (isExposeOpen) setIsExposeOpen(false);
+        else if (isContactOpen) setIsContactOpen(false);
+        else if (isCreatorOpen) setIsCreatorOpen(false);
         else if (isInkMode) setIsInkMode(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [playClick, isCreatorOpen, isInkMode, pongSession]);
+  }, [playClick, isCreatorOpen, isInkMode, isExposeOpen, isContactOpen, pongSession]);
 
   const resetDesktop = useCallback(() => {
     playClick();
@@ -617,6 +735,12 @@ const DesktopEnvironment: React.FC = () => {
     const nextIndex = (currentIndex + 1) % themeKeys.length;
     setTheme(themeKeys[nextIndex]);
   };
+
+  const handleNextWallpaper = useCallback(() => {
+    playClick();
+    const next = cycleWallpaper();
+    showGestureNotice(`Wallpaper · ${next.label}`);
+  }, [playClick, cycleWallpaper, showGestureNotice]);
 
   const cycleToyMode = () => {
     setToyMode((prev) => (prev === 'default' ? 'trail' : 'default'));
@@ -940,6 +1064,21 @@ const DesktopEnvironment: React.FC = () => {
       return `Morphing KhanOS into Pong (${targetMode === 'ai' ? 'vs AI' : targetMode === '2p' ? '2P Split' : 'Sticker Brick-Break'})...`;
     }
 
+    if (cmd === 'wallpaper' || cmd === 'wp') {
+      const next = cycleWallpaper();
+      return `Switched wallpaper to "${next.label}" with live Material 3 tones.`;
+    }
+
+    if (cmd === 'contact' || cmd === 'email') {
+      setIsContactOpen(true);
+      return 'Opened Quick Contact sheet.';
+    }
+
+    if (cmd === 'overview' || cmd === 'expose') {
+      setIsExposeOpen(true);
+      return 'Opened Window Overview (⌘/).';
+    }
+
     if (cmd === 'sound') {
       const flag = (args[0] || '').toLowerCase();
       if (flag === 'on') {
@@ -1068,11 +1207,60 @@ const DesktopEnvironment: React.FC = () => {
     },
   ];
 
+  const exposeWindowMeta: ExposeWindowMeta[] = [
+    {
+      id: 'welcome',
+      title: 'Welcome & Bio',
+      subtitle: 'Khan Hassan · Cloud & GenAI Engineer · Featured Releases',
+      icon: <User size={15} />,
+    },
+    {
+      id: 'projects',
+      title: 'Projects Showcase',
+      subtitle: activeProjectTitle
+        ? `Case Study: ${activeProjectTitle}`
+        : '6 Releases with interactive demos & architecture diagrams',
+      icon: <IconFolder size={15} />,
+    },
+    {
+      id: 'resume',
+      title: 'Resume / Dossier',
+      subtitle: 'Experience, verified credentials & interactive skill links',
+      icon: <FileText size={15} />,
+    },
+    {
+      id: 'pixel',
+      title: 'Pixel Studio',
+      subtitle: '16×16 / 32×32 pixel art editor with desktop sticker export',
+      icon: <IconPixelGrid size={15} />,
+    },
+    {
+      id: 'code',
+      title: 'Code Lab',
+      subtitle: 'Interactive spring & generative canvas parameter sandbox',
+      icon: <IconCodeBracket size={15} />,
+    },
+    {
+      id: 'terminal',
+      title: 'Terminal (zsh)',
+      subtitle: 'khan@os interactive shell, themes & desktop commands',
+      icon: <IconTerminal size={15} />,
+    },
+    {
+      id: 'settings',
+      title: 'System Settings',
+      subtitle: 'Material 3 tonal engine, wallpaper atmosphere & seed picker',
+      icon: <IconApps size={15} />,
+    },
+  ];
+
   const contextMenuItems: ContextMenuItem[] = [
     { label: 'New Note / Stamp', action: () => setIsCreatorOpen(true), icon: <IconPlus size={14} /> },
     { label: 'Spotlight Search', shortcut: '⌘K', action: () => setIsSpotlightOpen(true), icon: <Search size={14} /> },
+    { label: 'Window Overview', shortcut: '⌘/', action: () => setIsExposeOpen(true), icon: <LayoutGrid size={14} /> },
     { label: 'Showcase Split', action: () => applyWorkspacePreset('showcase-split'), icon: <Columns2 size={14} /> },
     { label: '', separator: true },
+    { label: 'Next Wallpaper', action: handleNextWallpaper, icon: <ImageIcon size={14} /> },
     { label: 'Cycle Theme', action: handleNextTheme, icon: <IconPalette size={14} /> },
     { label: 'System Settings', action: () => openWindowExplicit('settings'), icon: <IconMonitor size={14} /> },
   ];
@@ -1081,12 +1269,14 @@ const DesktopEnvironment: React.FC = () => {
     <ContextMenu
       quickActions={contextQuickActions}
       items={contextMenuItems}
-      disabled={Boolean(pongSession || isSpotlightOpen || isCreatorOpen || isInkMode)}
+      disabled={Boolean(
+        pongSession || isSpotlightOpen || isCreatorOpen || isContactOpen || isExposeOpen || isInkMode
+      )}
     >
       <BootOverlay bootNonce={rebootCount} isReboot={rebootCount > 0} onComplete={() => {}} />
       <div
         ref={constraintsRef}
-        className="relative h-[100dvh] w-screen overflow-hidden overscroll-none touch-none cursor-auto"
+        className="relative isolate h-[100dvh] w-screen overflow-hidden overscroll-none touch-none cursor-auto"
       >
         {/* Gesture Feedback HUD Pill */}
         <AnimatePresence>
@@ -1096,23 +1286,23 @@ const DesktopEnvironment: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.94 }}
               transition={{ type: 'spring', stiffness: 440, damping: 28 }}
-              className="fixed top-[64px] md:top-5 left-1/2 -translate-x-1/2 z-[95] pointer-events-none px-4 py-2 rounded-full bg-surface/95 backdrop-blur-md border border-border shadow-hard text-xs font-medium text-text-main whitespace-nowrap"
+              className="fixed top-[64px] md:top-5 left-1/2 -translate-x-1/2 z-[95] pointer-events-none px-4 py-2 rounded-full bg-surface/92 backdrop-blur-xl backdrop-saturate-150 border border-border shadow-hard text-xs font-medium text-text-main whitespace-nowrap"
             >
               {gestureHud}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Mobile Top Bar */}
+        {/* Mobile Top Bar (swaps seamlessly to the Ink toolbar while drawing on mobile) */}
         <div
-          className={`fixed top-[8px] left-[10px] right-[10px] z-[60] h-[48px] md:hidden pointer-events-none flex items-center gap-2 ${
-            pongSession ? 'opacity-0' : ''
+          className={`fixed top-[8px] left-[10px] right-[10px] z-[60] h-[48px] md:hidden pointer-events-none flex items-center gap-2 transition-opacity duration-150 ${
+            pongSession || isInkMode ? 'opacity-0' : ''
           }`}
         >
           <div
             data-pong-mobile-top="true"
-            className={`flex-1 h-full bg-surface/95 backdrop-blur-md border border-border rounded-full flex items-center justify-between pl-4 pr-1 shadow-sm ${
-              pongSession ? 'pointer-events-none' : 'pointer-events-auto'
+            className={`flex-1 h-full bg-surface/90 backdrop-blur-xl backdrop-saturate-150 border border-border rounded-full flex items-center justify-between pl-4 pr-1 shadow-sm ${
+              pongSession || isInkMode ? 'pointer-events-none' : 'pointer-events-auto'
             }`}
           >
             <span className="font-sans font-semibold text-sm text-text-main select-none tracking-tight">
@@ -1120,28 +1310,42 @@ const DesktopEnvironment: React.FC = () => {
             </span>
             <div className="flex items-center gap-0.5">
               <button
+                type="button"
                 onClick={() => {
                   playClick();
                   setIsSpotlightOpen(true);
                 }}
                 aria-label="Open Search"
-                className="flex items-center justify-center h-11 w-11 rounded-full hover:bg-neutral-90 dark:hover:bg-neutral-10 text-text-main touch-manipulation"
+                className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-neutral-90 dark:hover:bg-neutral-10 text-text-main touch-manipulation"
               >
                 <Search size={17} />
               </button>
               <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  setIsExposeOpen(true);
+                }}
+                aria-label="Window Overview"
+                className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-neutral-90 dark:hover:bg-neutral-10 text-text-main touch-manipulation"
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   playClick();
                   setIsCreatorOpen(true);
                 }}
                 aria-label="New sticky note"
-                className="flex items-center justify-center h-11 w-11 rounded-full hover:bg-neutral-90 dark:hover:bg-neutral-10 text-text-main touch-manipulation"
+                className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-neutral-90 dark:hover:bg-neutral-10 text-text-main touch-manipulation"
               >
                 <Plus size={18} />
               </button>
               <button
+                type="button"
                 onClick={toggleMobileNotes}
-                className={`text-xs font-mono h-10 min-w-[64px] px-3.5 rounded-full border transition-colors touch-manipulation ${
+                className={`text-xs font-mono h-10 min-w-[60px] px-3 rounded-full border transition-colors touch-manipulation ${
                   showMobileStickers
                     ? 'border-primary bg-primary text-primary-on font-semibold'
                     : 'border-border bg-bg-app text-text-main'
@@ -1153,49 +1357,89 @@ const DesktopEnvironment: React.FC = () => {
           </div>
         </div>
 
-        {/* Dynamic Background Layer */}
-        <div className="absolute inset-0 z-[-2] transition-all duration-300 ease-in-out bg-bg-app">
-          {wallpaper.type === 'default' && (
-            <>
-              <div
-                className="hidden md:block absolute inset-0 opacity-85 dark:opacity-55"
-                style={{
-                  background:
-                    'radial-gradient(circle at 60% 40%, var(--wallpaper-glow-1) 0%, transparent 68%)',
-                }}
-              />
-              <div
-                className="hidden md:block absolute inset-0 opacity-65 dark:opacity-45"
-                style={{
-                  background:
-                    'radial-gradient(circle at 20% 80%, var(--wallpaper-glow-2) 0%, transparent 55%)',
-                }}
-              />
-              <div
-                className="md:hidden absolute inset-0 opacity-80 dark:opacity-45"
-                style={{
-                  background:
-                    'linear-gradient(to bottom, var(--wallpaper-glow-1), var(--bg-app) 45%, var(--bg-app))',
-                }}
-              />
-            </>
-          )}
+        {/* Dynamic Background Layer with Smooth Crossfade, Focus Depth Blur, Parallax & Pong Fade-Out */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-bg-app">
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: hideWallpaperForPong ? 0 : 1,
+              transition: 'opacity 520ms cubic-bezier(0.22, 1, 0.36, 1)',
+            }}
+          >
+            <div
+              className="absolute inset-0 will-change-transform"
+              style={{
+                transform: `translate3d(${parallaxOffset.x}px, ${parallaxOffset.y}px, 0) scale(${
+                  wallpaperParallax || effectiveWallpaperBlur > 0 ? 1.05 : 1
+                })`,
+                filter: effectiveWallpaperBlur > 0 ? `blur(${effectiveWallpaperBlur}px)` : 'none',
+                transition:
+                  'filter 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms ease-out',
+              }}
+            >
+              <AnimatePresence mode="sync" initial={false}>
+                <motion.div
+                  key={wallpaper.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0"
+                >
+                  {wallpaper.type === 'default' && (
+                    <>
+                      <div
+                        className="hidden md:block absolute inset-0 opacity-85 dark:opacity-55"
+                        style={{
+                          background:
+                            'radial-gradient(circle at 60% 40%, var(--wallpaper-glow-1) 0%, transparent 68%)',
+                        }}
+                      />
+                      <div
+                        className="hidden md:block absolute inset-0 opacity-65 dark:opacity-45"
+                        style={{
+                          background:
+                            'radial-gradient(circle at 20% 80%, var(--wallpaper-glow-2) 0%, transparent 55%)',
+                        }}
+                      />
+                      <div
+                        className="md:hidden absolute inset-0 opacity-80 dark:opacity-45"
+                        style={{
+                          background:
+                            'linear-gradient(to bottom, var(--wallpaper-glow-1), var(--bg-app) 45%, var(--bg-app))',
+                        }}
+                      />
+                    </>
+                  )}
 
-          {wallpaper.type === 'gradient' && (
-            <div className="w-full h-full" style={{ background: wallpaper.value }} />
-          )}
+                  {wallpaper.type === 'gradient' && (
+                    <div className="w-full h-full" style={{ background: wallpaper.value }} />
+                  )}
 
-          {(wallpaper.type === 'image' || wallpaper.type === 'custom') && (
-            <>
-              <img
-                src={wallpaper.value}
-                alt={wallpaper.label}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
+                  {(wallpaper.type === 'image' || wallpaper.type === 'custom') && wallpaper.value && (
+                    <img
+                      src={wallpaper.value}
+                      alt={wallpaper.label}
+                      draggable={false}
+                      className="block w-full h-full object-cover select-none"
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Dynamic Contrast Dim Scrim */}
+            {wallpaper.type !== 'default' && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 pointer-events-none bg-black"
+                style={{
+                  opacity: effectiveDimOpacity,
+                  transition: 'opacity 420ms ease',
+                }}
               />
-              <div className="absolute inset-0 bg-black/15 dark:bg-black/35" />
-            </>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Desktop Ink Canvas Layer */}
@@ -1314,6 +1558,22 @@ const DesktopEnvironment: React.FC = () => {
           }`}
         >
           <motion.button
+            type="button"
+            whileHover={{ y: -1, scale: 1.03 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => {
+              playClick();
+              setIsExposeOpen(true);
+            }}
+            title="Window Overview (⌘/)"
+            aria-label="Window Overview"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface/90 backdrop-blur-xl backdrop-saturate-150 border border-border shadow-medium text-xs font-medium text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60"
+          >
+            <LayoutGrid size={13} />
+            <span>Overview</span>
+          </motion.button>
+          <motion.button
+            type="button"
             data-pong-search-pill="true"
             whileHover={{ y: -1, scale: 1.03 }}
             whileTap={{ scale: 0.96 }}
@@ -1321,12 +1581,13 @@ const DesktopEnvironment: React.FC = () => {
               playClick();
               setIsSpotlightOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface/95 border border-border shadow-medium text-xs font-medium text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface/90 backdrop-blur-xl backdrop-saturate-150 border border-border shadow-medium text-xs font-medium text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60"
           >
             <Search size={13} />
             <span>⌘K</span>
           </motion.button>
           <motion.button
+            type="button"
             data-pong-note-pill="true"
             whileHover={{ y: -1, scale: 1.03 }}
             whileTap={{ scale: 0.96 }}
@@ -1334,7 +1595,7 @@ const DesktopEnvironment: React.FC = () => {
               playClick();
               setIsCreatorOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-surface/95 border border-border shadow-medium text-xs font-medium text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-surface/90 backdrop-blur-xl backdrop-saturate-150 border border-border shadow-medium text-xs font-medium text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60"
           >
             <Plus size={14} />
             New Note
@@ -1367,6 +1628,7 @@ const DesktopEnvironment: React.FC = () => {
           <WelcomeWindow
             onOpenWindow={openWindowExplicit}
             onSelectProject={openProjectShowcase}
+            onOpenContact={() => setIsContactOpen(true)}
             onClose={() => closeWindow('welcome')}
           />
         </DraggableWindow>
@@ -1425,7 +1687,10 @@ const DesktopEnvironment: React.FC = () => {
           title="Resume / Dossier — Khan Hassan"
           contentClassName="p-0 bg-surface"
         >
-          <ResumeWindow />
+          <ResumeWindow
+            onOpenProject={openProjectShowcase}
+            onOpenContact={() => setIsContactOpen(true)}
+          />
         </DraggableWindow>
 
         <DraggableWindow
@@ -1540,11 +1805,27 @@ const DesktopEnvironment: React.FC = () => {
           />
         </DraggableWindow>
 
-        {/* Modals & Spotlight */}
+        {/* Modals, Window Overview & Spotlight */}
         <StickerCreatorModal
           isOpen={isCreatorOpen}
           onClose={() => setIsCreatorOpen(false)}
           onCreate={(payload) => addSticker(payload)}
+        />
+
+        <QuickContactModal
+          isOpen={isContactOpen}
+          onClose={() => setIsContactOpen(false)}
+        />
+
+        <WindowExposeOverlay
+          isOpen={isExposeOpen}
+          onClose={() => setIsExposeOpen(false)}
+          windows={windows}
+          focusedWindowId={focusedWindowId}
+          windowMeta={exposeWindowMeta}
+          onFocusWindow={openWindowExplicit}
+          onCloseWindow={closeWindow}
+          onMinimizeAll={() => applyWorkspacePreset('clean-desk')}
         />
 
         <SpotlightLauncher
@@ -1555,6 +1836,9 @@ const DesktopEnvironment: React.FC = () => {
           onApplyWorkspace={applyWorkspacePreset}
           onToggleInk={() => setIsInkMode((v) => !v)}
           onOpenNoteCreator={() => setIsCreatorOpen(true)}
+          onOpenContact={() => setIsContactOpen(true)}
+          onOpenExpose={() => setIsExposeOpen(true)}
+          onNextWallpaper={handleNextWallpaper}
           onSetTheme={(t) => setTheme(t)}
           onResetDesktop={resetDesktop}
           onReboot={rebootSystem}
@@ -1570,6 +1854,7 @@ const DesktopEnvironment: React.FC = () => {
             geometry={pongSession.geometry}
             initialMode={pongSession.initialMode}
             onHideDesktopStickersChange={setPongHideStickers}
+            onMorphOutStart={() => setIsPongExiting(true)}
             onFinishExit={handleFinishPong}
           />
         )}

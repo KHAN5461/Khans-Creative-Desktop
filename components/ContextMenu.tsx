@@ -118,7 +118,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -2 }}
             transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed z-[92] w-[224px] bg-surface/95 backdrop-blur-xl border border-border shadow-hard rounded-xl overflow-hidden py-1.5 cursor-default select-none"
+            className="fixed z-[92] w-[224px] bg-surface/92 backdrop-blur-xl backdrop-saturate-150 border border-border shadow-hard rounded-xl overflow-hidden py-1.5 cursor-default select-none"
             style={{ top: position.y, left: position.x }}
           >
             {/* Windows 11-Style Top Quick Action Strip */}

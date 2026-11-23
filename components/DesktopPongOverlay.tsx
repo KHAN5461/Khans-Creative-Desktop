@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, X, RotateCcw, Trophy, Cpu, Users, LayoutGrid } from 'lucide-react';
 import { StickerTone } from '../types';
 import { useSound } from '../contexts/SoundContext';
+import { useTheme } from '../theme/ThemeContext';
 
 export type PongMode = 'ai' | '2p' | 'bricks';
 
@@ -35,6 +36,7 @@ interface DesktopPongOverlayProps {
   geometry: PongUiGeometry;
   initialMode?: PongMode;
   onHideDesktopStickersChange: (hide: boolean) => void;
+  onMorphOutStart?: () => void;
   onFinishExit: (summary?: { won: boolean; mode: PongMode; scoreText: string }) => void;
 }
 
@@ -85,12 +87,20 @@ const MORPH_OUT_MS = 600;
 const FLOURISH_PLAYER_MS = 380;
 const FLOURISH_AI_MS = 400;
 
-const TONE_HEX: Record<StickerTone, { bg: string; border: string; text: string }> = {
-  surface: { bg: 'var(--bg-surface)', border: 'var(--border-subtle)', text: 'var(--text-main)' },
+const LIGHT_TONE_HEX: Record<StickerTone, { bg: string; border: string; text: string }> = {
+  surface: { bg: 'var(--bg-surface)', border: 'var(--border-main)', text: 'var(--text-main)' },
   amber: { bg: '#FFF3C4', border: '#E0BE58', text: '#3B2C00' },
   mint: { bg: '#DDF7E4', border: '#96D8AA', text: '#0E361B' },
   lavender: { bg: '#EAE4FF', border: '#BDB0F2', text: '#28165A' },
   rose: { bg: '#FFE2E8', border: '#F0A8B8', text: '#4E1021' },
+};
+
+const DARK_TONE_HEX: Record<StickerTone, { bg: string; border: string; text: string }> = {
+  surface: { bg: 'var(--surface-highest)', border: 'var(--outline-strong)', text: 'var(--text-main)' },
+  amber: { bg: '#4A3B08', border: '#9A7B1B', text: '#FFE89C' },
+  mint: { bg: '#113D22', border: '#3B8A58', text: '#B9F2C9' },
+  lavender: { bg: '#2F215E', border: '#725CC2', text: '#E2D9FF' },
+  rose: { bg: '#4E1626', border: '#B04663', text: '#FFD1DC' },
 };
 
 const FALLBACK_BRICKS: Array<{ text: string; tone: StickerTone }> = [
@@ -204,12 +214,12 @@ const triggerDomRecoil = (el: HTMLElement, nx: number, ny: number, isWindow: boo
       [
         {
           translate: '0px 0px',
-          outline: '2px solid var(--primary)',
+          outline: '2px solid var(--m3-primary)',
           outlineOffset: '0px',
         },
         {
           translate: `${Math.round(nx * dist)}px ${Math.round(ny * dist)}px`,
-          outline: isWindow ? '3px solid var(--primary)' : '2px solid var(--primary)',
+          outline: isWindow ? '3px solid var(--m3-primary)' : '2px solid var(--m3-primary)',
           outlineOffset: isWindow ? '2px' : '1px',
           ...(rot !== 0 ? { rotate: `${rot}deg` } : {}),
         },
@@ -233,6 +243,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
   geometry,
   initialMode = 'ai',
   onHideDesktopStickersChange,
+  onMorphOutStart,
   onFinishExit,
 }) => {
   const {
@@ -246,6 +257,10 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
     playPongHop,
     playLevelClear,
   } = useSound();
+  const { theme } = useTheme();
+  const isDarkRef = useRef(theme.isDark);
+  isDarkRef.current = theme.isDark;
+  const activeToneMap = theme.isDark ? DARK_TONE_HEX : LIGHT_TONE_HEX;
 
   const [mode, setMode] = useState<PongMode>(initialMode);
   const [phase, setPhase] = useState<PongPhase>('morph-in');
@@ -389,10 +404,16 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
 
   const spawnConfetti = useCallback((x: number, y: number, tone: StickerTone, count = 7) => {
     const s = stateRef.current;
+    const dark = isDarkRef.current;
+    const toneMap = dark ? DARK_TONE_HEX : LIGHT_TONE_HEX;
     const palette =
       tone === 'surface'
-        ? ['#D5A700', '#3B82F6', '#10B981', '#EC4899']
-        : [TONE_HEX[tone].bg, TONE_HEX[tone].border, TONE_HEX[tone].text];
+        ? dark
+          ? ['#F4C300', '#9BCBFF', '#B9F2C9', '#FFD1DC']
+          : ['#D5A700', '#3B82F6', '#10B981', '#EC4899']
+        : dark
+          ? [toneMap[tone].text, toneMap[tone].border, toneMap[tone].bg]
+          : [toneMap[tone].bg, toneMap[tone].border, toneMap[tone].text];
     for (let i = 0; i < count; i++) {
       const ang = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
       const spd = 90 + Math.random() * 190;
@@ -525,8 +546,9 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
       setGameOverInfo(null);
       setPhase('morph-out');
       phaseRef.current = 'morph-out';
+      onMorphOutStart?.();
     },
-    []
+    [onMorphOutStart]
   );
 
   // Initialize dimensions & kick off morph-in sound
@@ -654,6 +676,14 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
       }
 
       // Update & render crisp flat callout chips ("BANK!", "+20", etc.)
+      const rootStyles = getComputedStyle(document.documentElement);
+      const chipPrimary = rootStyles.getPropertyValue('--m3-primary').trim() || '#F4C300';
+      const chipOnPrimary = rootStyles.getPropertyValue('--m3-on-primary').trim() || '#1A181C';
+      const chipSurface = rootStyles.getPropertyValue('--surface-highest').trim() || rootStyles.getPropertyValue('--bg-surface').trim() || '#1F1D22';
+      const chipText = rootStyles.getPropertyValue('--text-main').trim() || '#E7E1EC';
+      const chipBorder = rootStyles.getPropertyValue('--outline-strong').trim() || '#605D65';
+      const isDarkNow = isDarkRef.current;
+
       for (let i = s.callouts.length - 1; i >= 0; i--) {
         const c = s.callouts[i];
         c.life += dt * 1000;
@@ -664,17 +694,23 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
         const progress = c.life / c.maxLife;
         const y = c.y - progress * 28;
         const alpha = progress < 0.2 ? progress / 0.2 : 1 - (progress - 0.2) / 0.8;
+        const isHighlight = c.text.includes('×') || c.text.startsWith('WAVE') || c.text === 'BANK!';
         ctx.save();
         ctx.globalAlpha = clamp(alpha, 0, 1);
         ctx.font = '700 11px ui-monospace, SFMono-Regular, Menlo, monospace';
         const tw = ctx.measureText(c.text).width;
         const bw = tw + 14;
-        const bh = 20;
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#111';
+        const bh = 21;
+        ctx.fillStyle = isHighlight ? chipPrimary : isDarkNow ? chipSurface : chipText;
         ctx.beginPath();
         ctx.roundRect(c.x - bw / 2, y - bh / 2, bw, bh, 999);
         ctx.fill();
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-surface').trim() || '#fff';
+        if (!isHighlight && isDarkNow) {
+          ctx.strokeStyle = chipBorder;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+        ctx.fillStyle = isHighlight ? chipOnPrimary : isDarkNow ? chipText : chipSurface;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(c.text, c.x, y + 0.5);
@@ -836,7 +872,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
           const size = Math.max(4, ballState.d * (0.58 - i * 0.09));
           dot.style.width = `${size}px`;
           dot.style.height = `${size}px`;
-          dot.style.opacity = `${0.24 - i * 0.042}`;
+          dot.style.opacity = `${(isDarkRef.current ? 0.34 : 0.24) - i * 0.05}`;
           dot.style.transform = `translate3d(${pt.x - size / 2}px, ${pt.y - size / 2}px, 0)`;
         }
       }
@@ -1673,12 +1709,12 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
           >
             {/* Dashed Center Court Line */}
             {mode !== 'bricks' && (
-              <div className="absolute inset-x-10 top-1/2 -translate-y-1/2 border-t-2 border-dashed border-text-main/10" />
+              <div className="absolute inset-x-10 top-1/2 -translate-y-1/2 border-t-2 border-dashed border-text-main/12 dark:border-text-main/18" />
             )}
 
             {/* Editorial Score Watermark */}
             {mode === 'bricks' ? (
-              <div className="flex flex-col items-center gap-2 text-text-main/[0.11] mt-24">
+              <div className="flex flex-col items-center gap-2 text-text-main/[0.12] dark:text-text-main/[0.19] mt-24">
                 <div className="font-mono text-xs uppercase tracking-[0.26em] font-semibold">
                   WAVE {brickWave} · BEST {brickBest}
                 </div>
@@ -1689,15 +1725,17 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className={`w-3 h-3 rounded-full border-2 border-text-main/30 transition-all ${
-                        i < brickLives ? 'bg-text-main/35 scale-100' : 'bg-transparent scale-75 opacity-40'
+                      className={`w-3 h-3 rounded-full border-2 border-text-main/30 dark:border-text-main/45 transition-all ${
+                        i < brickLives
+                          ? 'bg-text-main/40 dark:bg-primary/70 dark:border-primary/80 scale-100'
+                          : 'bg-transparent scale-75 opacity-40'
                       }`}
                     />
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-between h-[62vh] text-text-main/[0.11]">
+              <div className="flex flex-col items-center justify-between h-[62vh] text-text-main/[0.12] dark:text-text-main/[0.19]">
                 <div className="font-sans font-black tabular-nums text-[clamp(4.5rem,12vw,8.5rem)] leading-none tracking-tighter">
                   {String(scores.opponent).padStart(2, '0')}
                 </div>
@@ -1729,7 +1767,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
         }`}
       >
         {brickList.map((b) => {
-          const toneStyle = TONE_HEX[b.tone];
+          const toneStyle = activeToneMap[b.tone];
           return (
             <div
               key={b.id}
@@ -1742,7 +1780,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
                 color: toneStyle.text,
                 willChange: 'transform, width, height, opacity',
               }}
-              className="flex items-center justify-center rounded-lg border shadow-sm px-2.5 overflow-hidden"
+              className="flex items-center justify-center rounded-lg border shadow-sm dark:shadow-medium px-2.5 overflow-hidden"
             >
               <span className="text-[11px] sm:text-xs font-medium tracking-tight truncate">
                 {b.text}
@@ -1776,11 +1814,15 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
         <div
           ref={dockProxyRef}
           style={{ willChange: 'transform, width, height, border-radius' }}
-          className="fixed top-0 left-0 bg-surface border border-border shadow-hard overflow-hidden flex items-center justify-center"
+          className={`fixed top-0 left-0 border shadow-hard overflow-hidden flex items-center justify-center transition-colors duration-200 ${
+            isPlayingOrOver
+              ? 'bg-surface dark:bg-[var(--surface-highest)] border-border dark:border-[var(--outline-strong)]'
+              : 'bg-surface border-border'
+          }`}
         >
-          {/* Subtle central paddle grip mark */}
+          {/* Crisp central paddle grip mark */}
           <span
-            className={`w-9 h-1 rounded-full bg-text-main/30 transition-opacity duration-200 ${
+            className={`w-10 h-1 rounded-full bg-text-main/35 dark:bg-text-main/75 transition-opacity duration-200 ${
               isPlayingOrOver ? 'opacity-100' : 'opacity-0'
             }`}
           />
@@ -1806,11 +1848,11 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
         <div
           ref={topUnifiedRef}
           style={{ opacity: 0, willChange: 'transform, width, height, opacity' }}
-          className="fixed top-0 left-0 bg-surface border border-border shadow-hard flex items-center justify-center"
+          className="fixed top-0 left-0 bg-surface dark:bg-[var(--surface-highest)] border border-border dark:border-[var(--outline-strong)] shadow-hard flex items-center justify-center"
         >
-          <span className="w-9 h-1 rounded-full bg-primary/80" />
+          <span className="w-10 h-1 rounded-full bg-primary" />
           {mode === '2p' && show2PHints && phase === 'playing' && (
-            <span className="absolute -bottom-6 px-2 py-0.5 rounded-md bg-surface border border-border text-[10px] font-mono text-text-muted whitespace-nowrap">
+            <span className="absolute -bottom-6 px-2 py-0.5 rounded-md bg-surface dark:bg-[var(--surface-high)] border border-border dark:border-[var(--outline-strong)]/70 text-[10px] font-mono text-text-muted dark:text-text-main whitespace-nowrap">
               A / D · Top Touch
             </span>
           )}
@@ -1825,7 +1867,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
         <div
           ref={topPillARef}
           style={{ opacity: 0, willChange: 'transform, width, height, opacity' }}
-          className="fixed top-0 left-0 rounded-full bg-surface border border-border shadow-medium flex items-center justify-center overflow-hidden"
+          className="fixed top-0 left-0 rounded-full bg-surface dark:bg-[var(--surface-high)] border border-border dark:border-[var(--outline-strong)]/80 shadow-medium flex items-center justify-center overflow-hidden"
         >
           <div className="inline-flex items-center gap-1.5 text-xs font-medium text-text-main whitespace-nowrap px-2">
             <Search size={13} />
@@ -1837,7 +1879,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
         <div
           ref={topPillBRef}
           style={{ opacity: 0, willChange: 'transform, width, height, opacity' }}
-          className="fixed top-0 left-0 rounded-full bg-surface border border-border shadow-medium flex items-center justify-center overflow-hidden"
+          className="fixed top-0 left-0 rounded-full bg-surface dark:bg-[var(--surface-high)] border border-border dark:border-[var(--outline-strong)]/80 shadow-medium flex items-center justify-center overflow-hidden"
         >
           <div className="inline-flex items-center gap-1.5 text-xs font-medium text-text-main whitespace-nowrap px-2">
             <Plus size={14} />
@@ -1849,7 +1891,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
         <div
           ref={topMobileProxyRef}
           style={{ opacity: 0, willChange: 'transform, width, height, opacity' }}
-          className="fixed top-0 left-0 rounded-full bg-surface border border-border shadow-sm flex items-center justify-between px-4 overflow-hidden"
+          className="fixed top-0 left-0 rounded-full bg-surface dark:bg-[var(--surface-high)] border border-border dark:border-[var(--outline-strong)]/80 shadow-sm flex items-center justify-between px-4 overflow-hidden"
         >
           <div className="flex items-center justify-between w-full text-xs font-semibold text-text-main">
             <span>KhanOS</span>
@@ -1861,7 +1903,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
         <div
           ref={ballRef}
           style={{ willChange: 'transform, width, height' }}
-          className="fixed top-0 left-0 rounded-full border-[2.6px] border-text-main box-border flex items-center justify-center"
+          className="fixed top-0 left-0 rounded-full border-[2.6px] border-text-main dark:ring-1 dark:ring-black/45 box-border flex items-center justify-center"
         >
           <div
             ref={ballFillRef}
@@ -1884,14 +1926,14 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.94 }}
             transition={{ type: 'spring', stiffness: 440, damping: 28 }}
-            className="fixed top-3 left-3 md:top-4 md:left-5 z-[88] flex items-center gap-1 p-1 rounded-full bg-surface/95 backdrop-blur-md border border-border shadow-hard pointer-events-auto"
+            className="fixed top-3 left-3 md:top-4 md:left-5 z-[88] flex items-center gap-1 p-1 rounded-full bg-surface/95 dark:bg-[var(--surface-high)]/95 backdrop-blur-md border border-border dark:border-[var(--outline-strong)]/70 shadow-hard pointer-events-auto"
           >
             <button
               onClick={() => resetForMode('ai')}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-colors touch-manipulation ${
                 mode === 'ai'
                   ? 'bg-primary text-primary-on'
-                  : 'text-text-muted hover:text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60'
+                  : 'text-text-muted hover:text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-20/70'
               }`}
               title="Classic Rally vs Search & Notes AI"
             >
@@ -1904,7 +1946,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-colors touch-manipulation ${
                 mode === '2p'
                   ? 'bg-primary text-primary-on'
-                  : 'text-text-muted hover:text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60'
+                  : 'text-text-muted hover:text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-20/70'
               }`}
               title="Local 2-Player Split (Bottom: Mouse/Arrows, Top: A/D or Top Touch)"
             >
@@ -1917,7 +1959,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-colors touch-manipulation ${
                 mode === 'bricks'
                   ? 'bg-primary text-primary-on'
-                  : 'text-text-muted hover:text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-10/60'
+                  : 'text-text-muted hover:text-text-main hover:bg-neutral-90/60 dark:hover:bg-neutral-20/70'
               }`}
               title="Endless Sticker Brick-Break"
             >
@@ -1925,7 +1967,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
               <span className="hidden sm:inline">Bricks</span>
             </button>
 
-            <div className="w-px h-4 bg-border mx-0.5" />
+            <div className="w-px h-4 bg-border dark:bg-[var(--outline-strong)]/60 mx-0.5" />
 
             <button
               onClick={() => {
@@ -1934,7 +1976,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
               }}
               aria-label="Exit Pong and restore desktop"
               title="Restore Desktop (ESC)"
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold text-text-main hover:bg-neutral-90/70 dark:hover:bg-neutral-10/70 transition-colors touch-manipulation"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold text-text-main hover:bg-neutral-90/70 dark:hover:bg-neutral-20/70 transition-colors touch-manipulation"
             >
               <X size={13} />
               <span className="hidden sm:inline">Exit</span>
@@ -1953,8 +1995,8 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
             transition={{ type: 'spring', stiffness: 420, damping: 26 }}
             className="fixed inset-0 z-[89] flex items-center justify-center px-4 pointer-events-none"
           >
-            <div className="pointer-events-auto w-full max-w-xs rounded-2xl bg-surface/95 backdrop-blur-md border border-border shadow-hard p-5 text-center space-y-4 text-text-main">
-              <div className="mx-auto w-11 h-11 rounded-2xl bg-primary-container/35 border border-primary/40 flex items-center justify-center text-primary">
+            <div className="pointer-events-auto w-full max-w-xs rounded-2xl bg-surface/95 dark:bg-[var(--surface-high)]/95 backdrop-blur-md border border-border dark:border-[var(--outline-strong)]/70 shadow-hard p-5 text-center space-y-4 text-text-main">
+              <div className="mx-auto w-11 h-11 rounded-2xl bg-primary-container/35 dark:bg-primary-container/60 border border-primary/40 flex items-center justify-center text-primary">
                 <Trophy size={20} />
               </div>
 
@@ -1979,7 +2021,7 @@ const DesktopPongOverlay: React.FC<DesktopPongOverlayProps> = ({
                     playClick();
                     beginExit(gameOverInfo.outcome);
                   }}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-border bg-bg-app hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-semibold text-text-main transition-colors touch-manipulation"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-border dark:border-[var(--outline-strong)]/70 bg-bg-app dark:bg-[var(--surface-container)] hover:bg-neutral-90 dark:hover:bg-neutral-20 text-xs font-semibold text-text-main transition-colors touch-manipulation"
                 >
                   Restore Desk
                 </button>

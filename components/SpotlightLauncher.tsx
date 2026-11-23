@@ -17,6 +17,9 @@ import {
   Minimize2,
   Power,
   Gamepad2,
+  Mail,
+  Image as ImageIcon,
+  LayoutGrid,
 } from 'lucide-react';
 import { PORTFOLIO_PROJECTS } from '../data/projects';
 import { ThemeId, WindowId, WorkspacePreset } from '../types';
@@ -40,6 +43,9 @@ interface SpotlightLauncherProps {
   onApplyWorkspace: (preset: WorkspacePreset) => void;
   onToggleInk: () => void;
   onOpenNoteCreator: () => void;
+  onOpenContact: () => void;
+  onOpenExpose: () => void;
+  onNextWallpaper: () => void;
   onSetTheme: (id: ThemeId) => void;
   onResetDesktop: () => void;
   onReboot: () => void;
@@ -54,6 +60,9 @@ const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
   onApplyWorkspace,
   onToggleInk,
   onOpenNoteCreator,
+  onOpenContact,
+  onOpenExpose,
+  onNextWallpaper,
   onSetTheme,
   onResetDesktop,
   onReboot,
@@ -85,10 +94,18 @@ const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
       {
         id: 'app-resume',
         label: 'Resume / Dossier',
-        subtitle: 'Experience, competencies & Print PDF',
+        subtitle: 'Experience, verified credentials & Print PDF',
         group: 'Apps',
         icon: <FileText size={16} />,
         run: () => onOpenWindow('resume'),
+      },
+      {
+        id: 'act-contact',
+        label: 'Quick Contact / Say Hi',
+        subtitle: 'Send an internship, collaboration, or project note',
+        group: 'Actions',
+        icon: <Mail size={16} />,
+        run: onOpenContact,
       },
       {
         id: 'app-pixel',
@@ -131,6 +148,22 @@ const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
         run: () => onOpenProject(p.id),
       })),
       {
+        id: 'act-expose',
+        label: 'Window Overview / App Switcher (⌘/)',
+        subtitle: 'View and switch all open windows side-by-side',
+        group: 'Actions',
+        icon: <LayoutGrid size={16} />,
+        run: onOpenExpose,
+      },
+      {
+        id: 'act-next-wallpaper',
+        label: 'Next Wallpaper',
+        subtitle: 'Cycle dynamic wallpapers & extract live M3 colors',
+        group: 'Actions',
+        icon: <ImageIcon size={16} />,
+        run: onNextWallpaper,
+      },
+      {
         id: 'ws-showcase',
         label: 'Workspace: Showcase Split',
         subtitle: 'Snap Projects Showcase left + Live Code Lab right',
@@ -149,7 +182,7 @@ const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
       {
         id: 'ws-clean',
         label: 'Workspace: Clean Desk',
-        subtitle: 'Minimize all windows to view stickers and ink canvas',
+        subtitle: 'Minimize all windows to view ambient clock & wallpaper',
         group: 'Actions',
         icon: <Minimize2 size={16} />,
         run: () => onApplyWorkspace('clean-desk'),
@@ -227,7 +260,20 @@ const SpotlightLauncher: React.FC<SpotlightLauncherProps> = ({
         run: onReboot,
       },
     ],
-    [onOpenWindow, onOpenProject, onApplyWorkspace, onToggleInk, onOpenNoteCreator, onSetTheme, onResetDesktop, onReboot, onStartPong]
+    [
+      onOpenWindow,
+      onOpenProject,
+      onApplyWorkspace,
+      onToggleInk,
+      onOpenNoteCreator,
+      onOpenContact,
+      onOpenExpose,
+      onNextWallpaper,
+      onSetTheme,
+      onResetDesktop,
+      onReboot,
+      onStartPong,
+    ]
   );
 
   const filtered = useMemo(() => {

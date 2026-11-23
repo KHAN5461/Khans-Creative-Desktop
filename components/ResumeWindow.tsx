@@ -1,6 +1,22 @@
 import React, { useState } from 'react';
-import { Printer, Copy, Check, ExternalLink, Download, Award, MapPin } from 'lucide-react';
+import {
+  Printer,
+  Copy,
+  Check,
+  ExternalLink,
+  Download,
+  Award,
+  MapPin,
+  Link2,
+  Mail,
+  ArrowUpRight,
+} from 'lucide-react';
 import { useSound } from '../contexts/SoundContext';
+
+interface ResumeWindowProps {
+  onOpenProject?: (projectId: string) => void;
+  onOpenContact?: () => void;
+}
 
 const EXPERIENCE = [
   {
@@ -28,34 +44,103 @@ const EXPERIENCE = [
 
 const EDUCATION = [
   {
-    institution: "Anjuman-I-Islam's Kalsekar Technical Campus School of Engineering",
+    institution: "Anjuman-I-Islam's Kalsekar Technical Campus",
+    affiliation: 'Affiliated with University of Mumbai',
     degree: 'Bachelor of Engineering (BE) — Computer Engineering',
     period: 'Sep 2024 — Sep 2028',
   },
+];
+
+interface CredentialItem {
+  id: string;
+  title: string;
+  issuer: string;
+  year: string;
+  focus: string;
+  relatedProjectId?: string;
+  relatedProjectLabel?: string;
+}
+
+const CREDENTIALS: CredentialItem[] = [
   {
-    institution: 'University of Mumbai',
-    degree: 'Bachelor of Engineering (BE) — Computer & Information Sciences and Support Services',
-    period: 'Sep 2024 — Sep 2028',
+    id: 'genai-gemini',
+    title: 'Develop GenAI Apps with Gemini & Streamlit',
+    issuer: 'Google Cloud Skills Boost',
+    year: '2025',
+    focus: 'Gemini API · Streamlit · Cloud Run',
+    relatedProjectId: 'localized-tourism',
+    relatedProjectLabel: 'Localized Tourism Hub',
+  },
+  {
+    id: 'vertex-prompt',
+    title: 'Prompt Design in Vertex AI',
+    issuer: 'Google Cloud Skills Boost',
+    year: '2025',
+    focus: 'Structured Prompting · Multimodal AI',
+    relatedProjectId: 'crisismesh-ai',
+    relatedProjectLabel: 'CrisisMesh AI',
+  },
+  {
+    id: 'mckinsey-forward',
+    title: 'McKinsey Forward Graduate',
+    issuer: 'McKinsey & Company',
+    year: '2025',
+    focus: 'Structured Problem Solving · Product Communication',
+  },
+  {
+    id: 'python-cert',
+    title: 'Python Programming',
+    issuer: 'Verified Skill Credential',
+    year: '2024',
+    focus: 'Backend Scripting · APIs · Automation',
+    relatedProjectId: 'crisismesh-ai',
+    relatedProjectLabel: 'CrisisMesh AI',
+  },
+  {
+    id: 'graphic-design',
+    title: 'Graphic Design Essentials',
+    issuer: 'Visual Craft Certification',
+    year: '2024',
+    focus: 'Typography · Layout · Color Systems',
+    relatedProjectId: 'tonal-tokens',
+    relatedProjectLabel: 'M3 Tonal Engine',
   },
 ];
 
-const CERTIFICATIONS = [
-  'Develop GenAI Apps with Gemini and Streamlit',
-  'Prompt Design in Vertex AI',
-  'McKinsey Forward Graduate',
-  'Python',
-  'Graphic Design Essentials',
+interface InteractiveSkill {
+  label: string;
+  projectId: string;
+  projectTitle: string;
+}
+
+const CLOUD_AI_SKILLS: InteractiveSkill[] = [
+  { label: 'Google Cloud (GCP)', projectId: 'crisismesh-ai', projectTitle: 'CrisisMesh AI' },
+  { label: 'Vertex AI', projectId: 'crisismesh-ai', projectTitle: 'CrisisMesh AI' },
+  { label: 'Gemini', projectId: 'localized-tourism', projectTitle: 'Localized Tourism Data Hub' },
+  { label: 'Streamlit', projectId: 'localized-tourism', projectTitle: 'Localized Tourism Data Hub' },
+  { label: 'Python', projectId: 'crisismesh-ai', projectTitle: 'CrisisMesh AI' },
+  { label: 'Serverless & APIs', projectId: 'crisismesh-ai', projectTitle: 'CrisisMesh AI' },
 ];
 
-const ResumeWindow: React.FC = () => {
-  const [copied, setCopied] = useState(false);
+const WEB_MEDIA_SKILLS: InteractiveSkill[] = [
+  { label: 'React', projectId: 'localized-tourism', projectTitle: 'Localized Tourism Data Hub' },
+  { label: 'TypeScript', projectId: 'spring-primitives', projectTitle: 'Tactile Spring Kit' },
+  { label: 'Design Tokens', projectId: 'tonal-tokens', projectTitle: 'Material 3 Tonal Engine' },
+  { label: 'Web Audio', projectId: 'step8-synth', projectTitle: 'Step-8 WebAudio Synth' },
+  { label: 'Canvas 2D', projectId: 'harmonic-flow', projectTitle: 'Harmonic Orbital Canvas' },
+];
+
+const ResumeWindow: React.FC<ResumeWindowProps> = ({ onOpenProject, onOpenContact }) => {
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const { playClick } = useSound();
 
-  const handleCopyEmail = () => {
+  const handleCopyDeepLink = () => {
     playClick();
-    navigator.clipboard?.writeText('khanhassan5451@gmail.com').catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+    const url = `${window.location.origin}${window.location.pathname}#app=resume`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 1600);
   };
 
   const handlePrint = () => {
@@ -65,23 +150,47 @@ const ResumeWindow: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-surface text-text-main">
-      {/* Toolbar */}
-      <div className="px-4 sm:px-5 @4xl:px-8 py-3 border-b border-border bg-bg-app/70 shrink-0 select-none">
+      {/* Toolbar with scroll elevation */}
+      <div
+        className={`px-4 sm:px-5 @4xl:px-8 py-3 border-b border-border bg-bg-app/80 backdrop-blur-md backdrop-saturate-150 shrink-0 select-none transition-shadow duration-150 z-10 ${
+          isScrolled ? 'shadow-[0_8px_20px_-12px_rgba(0,0,0,0.28)] dark:shadow-[0_10px_24px_-12px_rgba(0,0,0,0.7)]' : ''
+        }`}
+      >
         <div className="max-w-4xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="text-xs font-mono text-text-muted">
             Dossier · Curriculum Vitae · Mumbai, IN
           </div>
-          <div className="grid grid-cols-3 sm:flex items-center gap-2 w-full sm:w-auto">
+          <div className="grid grid-cols-4 sm:flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+            {onOpenContact && (
+              <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  onOpenContact();
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 sm:py-1.5 min-h-[42px] sm:min-h-0 rounded-lg border border-border bg-surface hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap min-w-0 touch-manipulation"
+              >
+                <Mail size={13} className="shrink-0" />
+                <span className="truncate">Contact</span>
+              </button>
+            )}
             <button
-              onClick={handleCopyEmail}
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[42px] sm:min-h-0 rounded-lg border border-border bg-surface hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap min-w-0 touch-manipulation"
+              type="button"
+              onClick={handleCopyDeepLink}
+              title="Copy direct link to Resume"
+              className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 sm:py-1.5 min-h-[42px] sm:min-h-0 rounded-lg border border-border bg-surface hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap min-w-0 touch-manipulation"
             >
-              {copied ? <Check size={13} className="text-primary shrink-0" /> : <Copy size={13} className="shrink-0" />}
-              <span className="truncate">{copied ? 'Copied' : 'Email'}</span>
+              {copiedLink ? (
+                <Check size={13} className="text-primary shrink-0" />
+              ) : (
+                <Link2 size={13} className="shrink-0" />
+              )}
+              <span className="truncate">{copiedLink ? 'Copied' : 'Link'}</span>
             </button>
             <button
+              type="button"
               onClick={handlePrint}
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-1.5 min-h-[42px] sm:min-h-0 rounded-lg border border-border bg-surface hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap min-w-0 touch-manipulation"
+              className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 sm:py-1.5 min-h-[42px] sm:min-h-0 rounded-lg border border-border bg-surface hover:bg-neutral-90 dark:hover:bg-neutral-10 text-xs font-medium whitespace-nowrap min-w-0 touch-manipulation"
             >
               <Printer size={13} className="shrink-0" />
               <span className="truncate">Print</span>
@@ -90,7 +199,7 @@ const ResumeWindow: React.FC = () => {
               href="/assets/aistudio/Profile__2__2298aec1.pdf"
               download="Khan_Hassan_Profile.pdf"
               onClick={() => playClick()}
-              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2.5 sm:py-1.5 min-h-[42px] sm:min-h-0 rounded-lg bg-primary text-primary-on text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 touch-manipulation"
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-2.5 sm:py-1.5 min-h-[42px] sm:min-h-0 rounded-lg bg-primary text-primary-on text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 touch-manipulation"
             >
               <Download size={13} className="shrink-0" />
               <span>PDF</span>
@@ -102,6 +211,7 @@ const ResumeWindow: React.FC = () => {
       {/* Printable Resume Sheet */}
       <div
         id="resume-print-sheet"
+        onScroll={(e) => setIsScrolled(e.currentTarget.scrollTop > 4)}
         className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 md:p-8 @4xl:bg-bg-app/35 @4xl:py-8"
       >
         <div className="max-w-3xl @4xl:max-w-4xl mx-auto w-full space-y-6 sm:space-y-7 @4xl:bg-surface @4xl:border @4xl:border-border @4xl:rounded-2xl @4xl:p-10 @4xl:shadow-soft">
@@ -143,9 +253,7 @@ const ResumeWindow: React.FC = () => {
 
           {/* Summary */}
           <section className="space-y-2 border-b border-border pb-4 sm:pb-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Summary
-            </h2>
+            <h2 className="text-xs font-semibold text-text-muted">Summary</h2>
             <p className="text-xs sm:text-sm text-text-main/90 leading-relaxed">
               Second-year Computer Engineering student bridging complex cloud architecture and
               user-centric software design. Driven by building AI-powered systems for real-world
@@ -173,9 +281,7 @@ const ResumeWindow: React.FC = () => {
 
           {/* Experience */}
           <section className="space-y-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Experience
-            </h2>
+            <h2 className="text-xs font-semibold text-text-muted">Experience</h2>
             <div className="space-y-5">
               {EXPERIENCE.map((item) => (
                 <div key={item.company} className="space-y-1.5">
@@ -198,52 +304,125 @@ const ResumeWindow: React.FC = () => {
             </div>
           </section>
 
-          {/* Education */}
-          <section className="space-y-3 pt-2 border-t border-border">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Education
-            </h2>
+          {/* Education (Cleanly Merged) */}
+          <section className="space-y-3 pt-4 border-t border-border">
+            <h2 className="text-xs font-semibold text-text-muted">Education</h2>
             <div className="space-y-3">
               {EDUCATION.map((ed) => (
-                <div key={ed.institution} className="space-y-0.5">
+                <div key={ed.institution} className="space-y-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <div className="text-sm font-semibold text-text-main">{ed.institution}</div>
                     <span className="text-xs font-mono text-text-muted tabular-nums">{ed.period}</span>
                   </div>
-                  <div className="text-xs text-text-muted">{ed.degree}</div>
+                  <div className="text-xs text-text-main/90">{ed.degree}</div>
+                  <div className="text-[11px] font-mono text-text-muted">{ed.affiliation}</div>
                 </div>
               ))}
             </div>
           </section>
 
-          {/* Certifications & Skills */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 border-t border-border">
-            <div className="space-y-2.5">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted inline-flex items-center gap-1.5">
-                <Award size={12} /> Certifications
+          {/* Verified Credential Cards */}
+          <section className="space-y-3 pt-4 border-t border-border">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold text-text-muted inline-flex items-center gap-1.5">
+                <Award size={13} className="text-primary" />
+                <span>Verified Credentials</span>
               </h2>
-              <ul className="space-y-1.5 text-xs md:text-sm text-text-main">
-                {CERTIFICATIONS.map((cert) => (
-                  <li key={cert} className="flex items-start gap-2">
-                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                    <span>{cert}</span>
-                  </li>
-                ))}
-              </ul>
+              <span className="text-[11px] font-mono text-text-muted tabular-nums">
+                {CREDENTIALS.length} earned
+              </span>
             </div>
-            <div className="space-y-2.5">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {CREDENTIALS.map((cred) => (
+                <div
+                  key={cred.id}
+                  className="p-3.5 rounded-xl border border-border bg-bg-app/65 flex flex-col justify-between gap-2.5"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-text-muted">
+                      <span className="truncate">{cred.issuer}</span>
+                      <span className="tabular-nums shrink-0">{cred.year}</span>
+                    </div>
+                    <div className="mt-1 text-xs sm:text-[13px] font-semibold text-text-main leading-snug">
+                      {cred.title}
+                    </div>
+                    <div className="mt-1 text-[11px] text-text-muted">{cred.focus}</div>
+                  </div>
+                  {cred.relatedProjectId && onOpenProject && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        onOpenProject(cred.relatedProjectId!);
+                      }}
+                      className="self-start inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline touch-manipulation"
+                    >
+                      <span>Applied in {cred.relatedProjectLabel}</span>
+                      <ArrowUpRight size={11} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Interactive Skill Links */}
+          <section className="space-y-3 pt-4 border-t border-border">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-xs font-semibold text-text-muted">
                 Technical &amp; Creative Skills
               </h2>
-              <div className="space-y-2 text-xs md:text-sm text-text-main leading-relaxed">
-                <p>
-                  <span className="font-semibold text-text-muted">Cloud &amp; AI:</span> Google Cloud
-                  Platform (GCP) · Vertex AI · Gemini · Streamlit · Python · APIs · DevOps · Serverless
-                  &amp; Containers
-                </p>
-                <p>
-                  <span className="font-semibold text-text-muted">Web &amp; Media:</span> React ·
-                  TypeScript · Graphic Design · Video Editing · Videography · Offline Editing
+              {onOpenProject && (
+                <span className="text-[11px] text-text-muted">
+                  Click any skill to open its matching project
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-mono text-text-muted">Cloud, Backend &amp; GenAI</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {CLOUD_AI_SKILLS.map((skill) => (
+                    <button
+                      key={skill.label}
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        onOpenProject?.(skill.projectId);
+                      }}
+                      title={`View ${skill.projectTitle}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-bg-app hover:border-primary hover:text-primary text-xs font-medium text-text-main transition-colors whitespace-nowrap touch-manipulation"
+                    >
+                      <span>{skill.label}</span>
+                      {onOpenProject && <ArrowUpRight size={11} className="opacity-60" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-mono text-text-muted">Frontend, Systems &amp; Media</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEB_MEDIA_SKILLS.map((skill) => (
+                    <button
+                      key={skill.label}
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        onOpenProject?.(skill.projectId);
+                      }}
+                      title={`View ${skill.projectTitle}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-bg-app hover:border-primary hover:text-primary text-xs font-medium text-text-main transition-colors whitespace-nowrap touch-manipulation"
+                    >
+                      <span>{skill.label}</span>
+                      {onOpenProject && <ArrowUpRight size={11} className="opacity-60" />}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-text-muted pt-1">
+                  Media Craft: Graphic Design · Video Editing · Videography · Offline Editing
                 </p>
               </div>
             </div>
